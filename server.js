@@ -1,143 +1,144 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const Groq = require('groq-sdk');
-const path = require('path');
-require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*" }
-});
+const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Inisialisasi Groq API Key dari file .env
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
+app.use(express.static('public'));
 
-// Menggunakan Groq SDK Asli
-const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY
-});
+const rooms = {};
 
-const chatHistories = {};
-const humanTakeover = {};
-
+// SYSTEM PROMPT CS Virtual Spaceman88 (Formal & Premium)
 const SYSTEM_PROMPT = `
-Anda adalah Customer Service resmi yang sangat profesional, empati, formal, dan tenang untuk platform game online "Spaceman88".
+Anda adalah Customer Service Virtual resmi dari Spaceman88, sebuah platform hiburan daring eksklusif dan terkemuka.
 
-ATURAN UTAMA RESPON:
-1. GREETING & NAMA:
-   - Sapa selalu menggunakan kata "Bapak" (Contoh: "Baik Bapak [Nama]", "Siap Bapak [Nama]").
-   - DILARANG keras mengulang-ulang kata "Selamat datang" di setiap balasan! Salam registrasi hanya untuk balasan pertama kali saja.
+Informasi & Kebijakan Layanan:
+1. Jam Operasional: Layanan pendaftaran, transaksi deposit, dan penarikan dana (withdraw) beroperasi 24 jam nonstop setiap hari.
+2. Ketentuan Transaksi:
+   - Minimal Deposit: Rp 10.000 (Mendukung Bank Transfer BCA, Mandiri, BRI, BNI, E-Wallet DANA/OVO/Gopay/LinkAja, serta QRIS tanpa potongan).
+   - Minimal Penarikan Dana (Withdraw): Rp 50.000.
+   - Kendala Transaksi: Minta pelanggan memberikan Username ID dan bukti transfer resmi agar dapat diproses dengan prioritas tinggi oleh tim keuangan.
+3. Promo & Efisiensi Layanan:
+   - Bonus Anggota Baru 100%, serta pembagian Cashback & Komisi Mingguan secara otomatis setiap hari Senin.
+4. Informasi Permainan:
+   - Berikan informasi mengenai tingkat persentase kemenangan (RTP Live) secara objektif dan rekomendasikan provider terpercaya seperti Pragmatic Play dan PG Soft.
+5. Keamanan & Perubahan Data Privasi:
+   - Perubahan nomor rekening, verifikasi akun sensitif, atau klaim bonus manual wajib diteruskan kepada Customer Service Senior (Manusia).
 
-2. PENANGANAN MEMBER MARAH / EMOSI / SPAM (DE-ESCALATION):
-   - Jika member emosi, marah, atau spam:
-     a. TETAP TENANG & JANGAN EMOSI. Dilarang membalas secara defensif atau kaku.
+Tata Bahasa & Standar Pelayanan:
+- Wajib menggunakan bahasa Indonesia baku, formal, ramah, dan sangat menghormati pelanggan.
+- Selalu gunakan sapaan "Bapak" (contoh: "Selamat datang Bapak [Username]", "Ada yang dapat kami bantu Bapak?").
+- Hindari penggunaan kata-kata informal atau gaul seperti "Bosku", "Bro", "Kak", "Gacor", atau "Rungkad".
+- Jawablah pertanyaan secara padat, lugas, dan profesional (maksimal 2-3 kalimat).
+- DILARANG keras mengulang-ulang kata "Selamat datang" di setiap balasan! Salam registrasi/selamat datang hanya untuk balasan pertama kali saja.
+
+PENANGANAN MEMBER MARAH / EMOSI / SPAM (DE-ESCALATION):
+   - Jika member menunjukkan emosi tinggi, kata-kata kasar, marah, atau spam:
+     a. TETAP TENANG & JANGAN EMOSI. Dilarang keras membalas dengan nada defensif, menyalahkan, atau kaku.
      b. Berikan kalimat penenang dan validasi empati terlebih dahulu (Contoh: "Mohon maaf atas ketidaknyamanannya Bapak. Kami sangat memahami kekecewaan Bapak...").
-     c. Minta member menyampaikan detail kendala satu per satu agar tim kami bisa bantu selesaikan secepatnya.
+     c. Minta member untuk beristirahat/mendinginkan suasana sejenak atau menyampaikan detail kendala satu per satu agar tim kami bisa bantu selesaikan secepatnya.
      d. Berikan saran yang konstruktif dan solutif dengan tutur kata yang sangat santun.
 
 3. KENDALA & MULTI-VERIFIKASI (DOUBLE CHECK):
-   - Konfirmasi/verifikasi ulang detail kendala member terlebih dahulu (User ID, nominal, atau bukti pendukung) sebelum memberikan solusi pasti.
+   - Jika member menyampaikan kendala (deposit, withdraw, login, game error), lakukan konfirmasi/verifikasi ulang detail kendala member terlebih dahulu (misal: menanyakan User ID, nominal, atau bukti pendukung) sebelum memberikan solusi pasti.
 
 4. GAYA BAHASA & KELENGKAPAN:
    - Singkat, padat, lugas, santun, dan langsung ON-POINT (maksimal 2-4 kalimat).
+   - Jangan memberikan paragraf panjang yang bertele-tele.
 
 5. FOKUS LAYANAN & SOFT PIVOT:
-   - HANYA melayani seputar situs game online Spaceman88. Jika member bertanya di luar topik layanan, beri jawaban singkat lalu beralih secara halus (soft pivot) kembali ke layanan Spaceman88.
+   - Anda HANYA melayani seputar situs game online Spaceman88.
+   - Jika member bertanya hal di luar game online / di luar layanan Spaceman88, jawab singkat lalu lakukan PERALIHAN HALUS (soft pivot) kembali ke layanan game Spaceman88.
 `;
 
 io.on('connection', (socket) => {
-    socket.on('join_chat', ({ username, category }) => {
-        socket.join(socket.id);
-        chatHistories[socket.id] = [
-            { role: "system", content: SYSTEM_PROMPT }
-        ];
-        humanTakeover[socket.id] = false;
+  // Pelanggan bergabung ke ruang obrolan
+  socket.on('join_room', ({ roomId, username, category }) => {
+    socket.join(roomId);
+    if (!rooms[roomId]) {
+      rooms[roomId] = { 
+        isHumanTakeover: false, 
+        history: [], 
+        username: username || 'Pengguna', 
+        category: category || 'Umum' 
+      };
+    } else {
+      if (username) rooms[roomId].username = username;
+      if (category) rooms[roomId].category = category;
+    }
+    socket.emit('room_status', rooms[roomId]);
+  });
 
-        io.emit('new_user_connected', {
-            socketId: socket.id,
-            username: username || 'Member',
-            category: category || 'Umum'
-        });
-    });
+  // Menerima pesan dari Pelanggan
+  socket.on('user_message', async ({ roomId, text }) => {
+    if (!rooms[roomId]) return;
+    const room = rooms[roomId];
 
-    socket.on('user_message', async (data) => {
-        const { message, username } = data;
+    const userMsg = { sender: room.username, text, timestamp: new Date() };
+    room.history.push(userMsg);
+    io.to(roomId).emit('new_message', userMsg);
 
-        io.emit('admin_receive_message', {
-            socketId: socket.id,
-            sender: username || 'Member',
-            message: message,
-            isAdmin: false
-        });
+    // Jika CS Manusia mengambil alih, AI tidak membalas
+    if (room.isHumanTakeover) return;
 
-        if (humanTakeover[socket.id]) return;
+    try {
+      const conversationContext = [
+        { 
+          role: 'system', 
+          content: `${SYSTEM_PROMPT}\nData Pelanggan Saat Ini -> Username ID: ${room.username}, Kategori Perihal: ${room.category}` 
+        },
+        ...room.history.slice(-6).map(m => ({
+          role: m.sender === room.username ? 'user' : 'assistant',
+          content: m.text
+        }))
+      ];
 
-        chatHistories[socket.id].push({ 
-            role: "user", 
-            content: `User Name: ${username || 'Member'}. Message: ${message}` 
-        });
+      // Memanggil API Groq
+      const completion = await groq.chat.completions.create({
+        messages: conversationContext,
+        model: 'openai/gpt-oss-20b',
+        temperature: 0.5,
+        max_tokens: 200,
+      });
 
-        try {
-            const completion = await groq.chat.completions.create({
-                messages: chatHistories[socket.id],
-                model: "openai/gpt-oss-120b",
-                temperature: 0.5,
-                max_tokens: 250
-            });
+      const aiReplyText = completion.choices[0]?.message?.content || 'Mohon maaf Bapak, terjadi kendala teknis pada sistem kami. Silakan tunggu sejenak, petugas CS kami akan segera melayani Bapak.';
+      const aiMsg = { sender: 'CS Spaceman88', text: aiReplyText, timestamp: new Date() };
 
-            const aiReply = completion.choices[0].message.content;
-            chatHistories[socket.id].push({ role: "assistant", content: aiReply });
+      room.history.push(aiMsg);
+      io.to(roomId).emit('new_message', aiMsg);
 
-            // Delay balasan 10 detik
-            setTimeout(() => {
-                socket.emit('bot_reply', { message: aiReply });
-                
-                io.emit('admin_receive_message', {
-                    socketId: socket.id,
-                    sender: 'CS Spaceman88 (AI)',
-                    message: aiReply,
-                    isAdmin: true
-                });
-            }, 10000);
+    } catch (err) {
+      console.error('Error Groq API:', err.message);
+      const errorMsg = { sender: 'CS Spaceman88', text: 'Mohon maaf Bapak, sistem respon otomatis sedang mengalami kendala. Petugas CS kami akan segera menyapa Bapak.', timestamp: new Date() };
+      io.to(roomId).emit('new_message', errorMsg);
+    }
+  });
 
-        } catch (error) {
-            console.error("Groq Error:", error);
-            setTimeout(() => {
-                socket.emit('bot_reply', { 
-                    message: "Mohon maaf Bapak, sistem kami sedang mengalami sedikit kendala. Mohon tunggu sebentar ya Bapak." 
-                });
-            }, 10000);
-        }
-    });
+  // Menerima pesan dari Admin (CS Manusia)
+  socket.on('admin_message', ({ roomId, text }) => {
+    if (!rooms[roomId]) return;
+    const adminMsg = { sender: 'CS Spaceman88 (Senior)', text, timestamp: new Date() };
+    rooms[roomId].history.push(adminMsg);
+    io.to(roomId).emit('new_message', adminMsg);
+  });
 
-    socket.on('admin_takeover', ({ targetSocketId }) => {
-        humanTakeover[targetSocketId] = true;
-    });
-
-    socket.on('admin_message', ({ targetSocketId, message }) => {
-        io.to(targetSocketId).emit('bot_reply', { message: message });
-        
-        io.emit('admin_receive_message', {
-            socketId: targetSocketId,
-            sender: 'CS Spaceman88 (Human)',
-            message: message,
-            isAdmin: true
-        });
-    });
-
-    socket.on('disconnect', () => {
-        delete chatHistories[socket.id];
-        delete humanTakeover[socket.id];
-        io.emit('user_disconnected', { socketId: socket.id });
-    });
+  // Mengubah status Ambil Alih
+  socket.on('toggle_takeover', ({ roomId, isHumanTakeover }) => {
+    if (rooms[roomId]) {
+      rooms[roomId].isHumanTakeover = isHumanTakeover;
+      io.to(roomId).emit('takeover_updated', isHumanTakeover);
+    }
+  });
 });
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server Spaceman88 running on port ${PORT}`);
+  console.log(`Server Spaceman88 LiveChat running at http://localhost:${PORT}`);
 });
