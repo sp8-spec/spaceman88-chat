@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin CS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    #admin-chat-box::-webkit-scrollbar { width: 4px; }
+    #admin-chat-box::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Header Dashboard -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <div class="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
+      <h1 class="text-lg font-bold">Support Console Dashboard Slot 24/7</h1>
+    </div>
+    <span class="text-xs bg-slate-800 text-slate-400 px-3 py-1 rounded-full border border-slate-700">Status: Active Agent</span>
+  </header>
+
+  <div class="flex-1 flex overflow-hidden">
+    <!-- Panel Antrean Chat -->
+    <aside class="w-80 bg-slate-900/60 border-r border-slate-800 p-4">
+      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Antrean Percakapan</h2>
+      <div class="space-y-2">
+        <div class="bg-indigo-950/40 border border-indigo-500/30 p-3 rounded-xl cursor-pointer">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-sm">session-user-1</span>
+            <span class="w-2 h-2 bg-emerald-400 rounded-full"></span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1 truncate">Pelanggan terhubung...</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat Room Area -->
+    <main class="flex-1 flex flex-col bg-slate-950">
+      
+      <!-- Top Control Bar -->
+      <div class="bg-slate-900/80 p-4 border-b border-slate-800 flex justify-between items-center">
+        <div>
+          <h2 class="font-semibold text-sm">Percakapan Aktif: session-user-1</h2>
+          <p id="mode-status" class="text-xs text-emerald-400">Mode: AI Autopilot Aktif</p>
+        </div>
+
+        <!-- Toggle Switch Bot Off / Ambil Alih -->
+        <label class="flex items-center gap-3 cursor-pointer bg-slate-800 px-4 py-2 rounded-xl border border-slate-700">
+          <span class="text-xs font-medium text-slate-300">Ambil Alih (Matikan Bot):</span>
+          <input type="checkbox" id="takeover-toggle" class="sr-only peer">
+          <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 relative"></div>
+        </label>
+      </div>
+
+      <!-- Admin Chat Box -->
+      <div id="admin-chat-box" class="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-950">
+        <!-- Pesan akan dimuat otomatis -->
+      </div>
+
+      <!-- Quick Reply Templates untuk Slot -->
+      <div class="px-6 py-2 bg-slate-900/40 border-t border-slate-800/60 flex gap-2 overflow-x-auto text-xs">
+        <span class="text-slate-400 self-center font-semibold text-[11px]">Template Balasan:</span>
+        <button onclick="sendQuickReply('Halo Bosku! Ada yang bisa kami bantu untuk akun atau transaksinya hari ini?')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">👋 Sapaan Slot</button>
+        <button onclick="sendQuickReply('Boleh diinfokan User ID dan bukti transfernya Bosku? Biar kami bantu cek loket depositnya.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">💳 Cek Depo/WD</button>
+        <button onclick="sendQuickReply('Mohon ditunggu 1-3 menit ya Bosku, transaksi sedang diproses oleh tim keuangan.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">⏳ Proses WD</button>
+        <button onclick="sendQuickReply('Silakan cek bocoran RTP Live terbaru kami melalui menu utama ya Bosku!')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">🎰 Info RTP</button>
+      </div>
+
+      <!-- Input Balasan Admin -->
+      <form id="admin-form" class="p-4 bg-slate-900 border-t border-slate-800 flex gap-3">
+        <input id="admin-input" type="text" placeholder="Ketik balasan manual sebagai CS Agent..." class="flex-1 bg-slate-950 text-white text-xs rounded-xl px-4 py-3 border border-slate-800 focus:outline-none focus:border-indigo-500" />
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-6 py-3 rounded-xl font-semibold transition">Kirim (CS)</button>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    const socket = io();
+    const roomId = 'session-user-1';
+
+    const adminChatBox = document.getElementById('admin-chat-box');
+    const adminForm = document.getElementById('admin-form');
+    const adminInput = document.getElementById('admin-input');
+    const takeoverToggle = document.getElementById('takeover-toggle');
+    const modeStatus = document.getElementById('mode-status');
+
+    socket.emit('join_room', roomId);
+
+    socket.on('room_status', (status) => {
+      takeoverToggle.checked = status.isHumanTakeover;
+      updateModeText(status.isHumanTakeover);
+    });
+
+    takeoverToggle.onchange = () => {
+      const isHumanTakeover = takeoverToggle.checked;
+      socket.emit('toggle_takeover', { roomId, isHumanTakeover });
+      updateModeText(isHumanTakeover);
+    };
+
+    socket.on('takeover_updated', (isHumanTakeover) => {
+      takeoverToggle.checked = isHumanTakeover;
+      updateModeText(isHumanTakeover);
+    });
+
+    function updateModeText(isHuman) {
+      if (isHuman) {
+        modeStatus.innerText = 'Mode: CS Manusia Aktif (Bot Dinonaktifkan)';
+        modeStatus.className = 'text-xs text-amber-400 font-semibold';
+      } else {
+        modeStatus.innerText = 'Mode: AI Autopilot Aktif';
+        modeStatus.className = 'text-xs text-emerald-400';
+      }
+    }
+
+    adminForm.onsubmit = (e) => {
+      e.preventDefault();
+      const text = adminInput.value.trim();
+      if (text) {
+        socket.emit('admin_message', { roomId, text });
+        adminInput.value = '';
+      }
+    };
+
+    function sendQuickReply(text) {
+      socket.emit('admin_message', { roomId, text });
+    }
+
+    socket.on('new_message', (msg) => {
+      const msgDiv = document.createElement('div');
+      const isUser = msg.sender === 'User';
+
+      msgDiv.className = `flex flex-col ${isUser ? 'items-start' : 'items-end'}`;
+      msgDiv.innerHTML = `
+        <span class="text-[10px] text-slate-500 mb-1">${msg.sender}</span>
+        <div class="p-3 rounded-xl text-xs max-w-[70%] ${isUser ? 'bg-slate-800 text-slate-200 border border-slate-700' : 'bg-emerald-900/60 text-emerald-200 border border-emerald-700/50'}">
+          ${msg.text}
+        </div>
+      `;
+      adminChatBox.appendChild(msgDiv);
+      adminChatBox.scrollTop = adminChatBox.scrollHeight;
+    });
+  </script>
+</body>
+</html>

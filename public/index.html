@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spaceman88 - Executive Live Support</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    #chat-box::-webkit-scrollbar { width: 4px; }
+    #chat-box::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex items-center justify-center p-4">
+
+  <div class="text-center max-w-md">
+    <h1 class="text-3xl font-extrabold text-indigo-400 tracking-wider mb-2">SPACEMAN88</h1>
+    <p class="text-slate-400 text-sm">Layanan Pelanggan Eksekutif 24/7. Silakan klik ikon di sudut kanan bawah untuk terhubung dengan layanan prioritas kami.</p>
+  </div>
+
+  <!-- Tombol Toggle Floating Chat -->
+  <button id="chat-toggle" class="fixed bottom-6 right-6 bg-indigo-700 hover:bg-indigo-600 text-white p-4 rounded-full shadow-2xl transition duration-300 z-50">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  </button>
+
+  <!-- Box Container Chat -->
+  <div id="chat-widget" class="hidden fixed bottom-20 right-6 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 h-[520px]">
+    
+    <!-- Header Chat -->
+    <div class="bg-indigo-900 border-b border-indigo-800 p-4 flex justify-between items-center text-white">
+      <div>
+        <h3 class="font-bold text-sm tracking-wide">Spaceman88 Live Support</h3>
+        <p class="text-[11px] text-indigo-200">Layanan Prioritas 24 Jam Nonstop</p>
+      </div>
+      <button id="chat-close" class="text-indigo-200 hover:text-white font-bold text-sm">✕</button>
+    </div>
+
+    <!-- TAMPILAN 1: FORM PRE-CHAT -->
+    <div id="prechat-screen" class="flex-1 p-6 flex flex-col justify-center bg-slate-900">
+      <div class="text-center mb-5">
+        <h4 class="font-bold text-slate-100 text-base">Selamat Datang di Spaceman88</h4>
+        <p class="text-xs text-slate-400 mt-1">Mohon melengkapi formulir berikut sebelum memulai percakapan.</p>
+      </div>
+
+      <form id="prechat-form" class="space-y-4">
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">Username ID Anda</label>
+          <input type="text" id="username-input" placeholder="Masukkan User ID..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" required>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">Kategori Perihal</label>
+          <select id="category-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" required>
+            <option value="" disabled selected>-- Pilih Perihal Kendala --</option>
+            <option value="Transaksi Depo / WD">Transaksi Deposit / Withdraw</option>
+            <option value="Bonus & Promo">Informasi Bonus & Promo</option>
+            <option value="Lupa Akun / Kata Sandi">Kendala Akun & Kata Sandi</option>
+            <option value="Kendala Lainnya">Kendala Lainnya</option>
+          </select>
+        </div>
+
+        <button type="submit" class="w-full bg-indigo-700 hover:bg-indigo-600 text-white font-semibold text-xs py-3 rounded-xl transition shadow-lg mt-2">
+          Hubungkan Layanan Live Chat
+        </button>
+      </form>
+    </div>
+
+    <!-- TAMPILAN 2: ARENA CHAT SYSTEM -->
+    <div id="chat-screen" class="hidden flex-1 flex flex-col h-full overflow-hidden">
+      <!-- Area Pesan -->
+      <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/60">
+        <!-- Welcoming message dimuat via JS -->
+      </div>
+
+      <!-- Form Kirim Pesan -->
+      <form id="user-form" class="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+        <input id="user-input" type="text" placeholder="Ketik pesan Anda di sini..." class="flex-1 bg-slate-950 text-white text-xs rounded-xl px-3 py-2.5 border border-slate-800 focus:outline-none focus:border-indigo-500" required />
+        <button type="submit" class="bg-indigo-700 hover:bg-indigo-600 text-white text-xs px-4 py-2.5 rounded-xl font-semibold transition">Kirim</button>
+      </form>
+    </div>
+
+  </div>
+
+  <script>
+    const socket = io();
+    const roomId = 'session-user-1';
+
+    let userProfile = { username: '', category: '' };
+
+    const chatToggle = document.getElementById('chat-toggle');
+    const chatWidget = document.getElementById('chat-widget');
+    const chatClose = document.getElementById('chat-close');
+    
+    const prechatScreen = document.getElementById('prechat-screen');
+    const chatScreen = document.getElementById('chat-screen');
+    const prechatForm = document.getElementById('prechat-form');
+    const usernameInput = document.getElementById('username-input');
+    const categoryInput = document.getElementById('category-input');
+
+    const userForm = document.getElementById('user-form');
+    const userInput = document.getElementById('user-input');
+    const chatBox = document.getElementById('chat-box');
+
+    chatToggle.onclick = () => chatWidget.classList.toggle('hidden');
+    chatClose.onclick = () => chatWidget.classList.add('hidden');
+
+    // Submit Form Pre-Chat
+    prechatForm.onsubmit = (e) => {
+      e.preventDefault();
+      userProfile.username = usernameInput.value.trim();
+      userProfile.category = categoryInput.value;
+
+      // Hubungkan Socket
+      socket.emit('join_room', { roomId, username: userProfile.username, category: userProfile.category });
+
+      // Pindah Tampilan
+      prechatScreen.classList.add('hidden');
+      chatScreen.classList.remove('hidden');
+
+      // Sambutan Formal Pertama
+      const welcomeDiv = document.createElement('div');
+      welcomeDiv.className = 'bg-slate-900 text-slate-200 p-3.5 rounded-xl text-xs border border-slate-800 space-y-1.5 shadow-sm';
+      welcomeDiv.innerHTML = `
+        <p class="font-bold text-indigo-400">Selamat datang Bapak ${userProfile.username},</p>
+        <p>Terima kasih telah menghubungi Customer Service resmi Spaceman88. Kami siap melayani kebutuhan Anda 24 jam nonstop.</p>
+        <p class="text-[11px] text-slate-400 pt-1 border-t border-slate-800">Kategori Kendala: <span class="text-amber-400 font-medium">${userProfile.category}</span></p>
+      `;
+      chatBox.appendChild(welcomeDiv);
+    };
+
+    // Send Message
+    userForm.onsubmit = (e) => {
+      e.preventDefault();
+      const text = userInput.value.trim();
+      if (text) {
+        socket.emit('user_message', { roomId, text });
+        userInput.value = '';
+      }
+    };
+
+    // Receive New Message
+    socket.on('new_message', (msg) => {
+      const msgDiv = document.createElement('div');
+      const isUser = msg.sender === userProfile.username;
+
+      msgDiv.className = `flex flex-col ${isUser ? 'items-end' : 'items-start'}`;
+      msgDiv.innerHTML = `
+        <span class="text-[10px] text-slate-500 mb-1">${msg.sender}</span>
+        <div class="p-3 rounded-xl text-xs max-w-[85%] ${isUser ? 'bg-indigo-700 text-white' : 'bg-slate-900 text-slate-200 border border-slate-800'}">
+          ${msg.text}
+        </div>
+      `;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+  </script>
+</body>
+</html>
