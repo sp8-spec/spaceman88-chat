@@ -77,6 +77,9 @@ io.on('connection', (socket) => {
       if (category) rooms[roomId].category = category;
     }
     socket.emit('room_status', rooms[roomId]);
+    
+    // Kirim pembaruan daftar room ke semua admin
+    io.emit('update_room_list', rooms);
   });
 
   // Menerima pesan dari Pelanggan
@@ -87,6 +90,7 @@ io.on('connection', (socket) => {
     const userMsg = { sender: room.username, text, timestamp: new Date() };
     room.history.push(userMsg);
     io.to(roomId).emit('new_message', userMsg);
+    io.emit('update_room_list', rooms); // Update list sidebar admin
 
     // Jika CS Manusia mengambil alih, AI tidak membalas
     if (room.isHumanTakeover) return;
@@ -116,11 +120,14 @@ io.on('connection', (socket) => {
 
       room.history.push(aiMsg);
       io.to(roomId).emit('new_message', aiMsg);
+      io.emit('update_room_list', rooms); // Update list sidebar admin
 
     } catch (err) {
       console.error('Error Groq API:', err.message);
       const errorMsg = { sender: 'CS Spaceman88', text: 'Mohon maaf Bapak, sistem respon otomatis sedang mengalami kendala. Petugas CS kami akan segera menyapa Bapak.', timestamp: new Date() };
+      room.history.push(errorMsg);
       io.to(roomId).emit('new_message', errorMsg);
+      io.emit('update_room_list', rooms);
     }
   });
 
@@ -130,6 +137,7 @@ io.on('connection', (socket) => {
     const adminMsg = { sender: 'CS Spaceman88 (Senior)', text, timestamp: new Date() };
     rooms[roomId].history.push(adminMsg);
     io.to(roomId).emit('new_message', adminMsg);
+    io.emit('update_room_list', rooms); // Update list sidebar admin
   });
 
   // Mengubah status Ambil Alih
@@ -137,6 +145,7 @@ io.on('connection', (socket) => {
     if (rooms[roomId]) {
       rooms[roomId].isHumanTakeover = isHumanTakeover;
       io.to(roomId).emit('takeover_updated', isHumanTakeover);
+      io.emit('update_room_list', rooms); // Update status badge di admin
     }
   });
 });
