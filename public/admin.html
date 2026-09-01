@@ -26,7 +26,7 @@
     <!-- Panel Antrean Chat -->
     <aside class="w-80 bg-slate-900/60 border-r border-slate-800 p-4">
       <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Antrean Percakapan</h2>
-      <div class="space-y-2">
+      <div class="space-y-2" id="queue-list">
         <div class="bg-indigo-950/40 border border-indigo-500/30 p-3 rounded-xl cursor-pointer">
           <div class="flex justify-between items-center">
             <span class="font-semibold text-sm">session-user-1</span>
@@ -57,16 +57,16 @@
 
       <!-- Admin Chat Box -->
       <div id="admin-chat-box" class="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-950">
-        <!-- Pesan akan dimuat otomatis -->
+        <!-- Pesan dimuat otomatis -->
       </div>
 
       <!-- Quick Reply Templates untuk Slot -->
       <div class="px-6 py-2 bg-slate-900/40 border-t border-slate-800/60 flex gap-2 overflow-x-auto text-xs">
         <span class="text-slate-400 self-center font-semibold text-[11px]">Template Balasan:</span>
-        <button onclick="sendQuickReply('Halo Bosku! Ada yang bisa kami bantu untuk akun atau transaksinya hari ini?')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">👋 Sapaan Slot</button>
-        <button onclick="sendQuickReply('Boleh diinfokan User ID dan bukti transfernya Bosku? Biar kami bantu cek loket depositnya.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">💳 Cek Depo/WD</button>
-        <button onclick="sendQuickReply('Mohon ditunggu 1-3 menit ya Bosku, transaksi sedang diproses oleh tim keuangan.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">⏳ Proses WD</button>
-        <button onclick="sendQuickReply('Silakan cek bocoran RTP Live terbaru kami melalui menu utama ya Bosku!')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">🎰 Info RTP</button>
+        <button onclick="sendQuickReply('Halo Bapak! Ada yang bisa kami bantu untuk akun atau transaksinya hari ini?')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">👋 Sapaan Slot</button>
+        <button onclick="sendQuickReply('Boleh diinfokan User ID dan bukti transfernya Bapak? Biar kami bantu cek loket depositnya.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">💳 Cek Depo/WD</button>
+        <button onclick="sendQuickReply('Mohon ditunggu 1-3 menit ya Bapak, transaksi sedang diproses oleh tim keuangan.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">⏳ Proses WD</button>
+        <button onclick="sendQuickReply('Silakan cek bocoran RTP Live terbaru kami melalui menu utama ya Bapak!')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">🎰 Info RTP</button>
       </div>
 
       <!-- Input Balasan Admin -->
@@ -87,7 +87,8 @@
     const takeoverToggle = document.getElementById('takeover-toggle');
     const modeStatus = document.getElementById('mode-status');
 
-    socket.emit('join_room', roomId);
+    // Bergabung ke room pelanggan
+    socket.emit('join_room', { roomId, username: 'CS Admin', category: 'Admin' });
 
     socket.on('room_status', (status) => {
       takeoverToggle.checked = status.isHumanTakeover;
@@ -128,14 +129,21 @@
       socket.emit('admin_message', { roomId, text });
     }
 
+    // Penerimaan & Tampilan Pesan
     socket.on('new_message', (msg) => {
       const msgDiv = document.createElement('div');
-      const isUser = msg.sender === 'User';
+      
+      // Deteksi pengirim: Jika BUKAN mengandung kata 'CS Spaceman88', tampilkan di KIRI (sebagai Member)
+      const isUser = !msg.sender.includes('CS Spaceman88');
 
       msgDiv.className = `flex flex-col ${isUser ? 'items-start' : 'items-end'}`;
       msgDiv.innerHTML = `
         <span class="text-[10px] text-slate-500 mb-1">${msg.sender}</span>
-        <div class="p-3 rounded-xl text-xs max-w-[70%] ${isUser ? 'bg-slate-800 text-slate-200 border border-slate-700' : 'bg-emerald-900/60 text-emerald-200 border border-emerald-700/50'}">
+        <div class="p-3 rounded-xl text-xs max-w-[70%] ${
+          isUser 
+            ? 'bg-slate-800 text-slate-200 border border-slate-700' 
+            : 'bg-indigo-900/80 text-indigo-100 border border-indigo-700/50'
+        }">
           ${msg.text}
         </div>
       `;
