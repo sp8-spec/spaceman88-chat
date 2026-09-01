@@ -1,18 +1,15 @@
 {
-  "name": "bot-livechat",
+  "name": "spaceman88-chat",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Live Chat Spaceman88",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "groq-sdk": "^1.6.0",
-    "socket.io": "^4.8.3"
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "openai": "^4.56.0",
+    "socket.io": "^4.7.5"
   }
 }
