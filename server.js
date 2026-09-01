@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const OpenAI = require('openai');
+const Groq = require('groq-sdk');
 const path = require('path');
 require('dotenv').config();
 
@@ -17,9 +17,9 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-const groq = new OpenAI({
-    apiKey: process.env.GROQ_API_KEY,
-    baseURL: 'https://api.groq.com/openai/v1',
+// Menggunakan Groq SDK Asli
+const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY
 });
 
 const chatHistories = {};
@@ -31,13 +31,14 @@ Anda adalah Customer Service resmi yang sangat profesional, empati, formal, dan 
 ATURAN UTAMA RESPON:
 1. GREETING & NAMA:
    - Sapa selalu menggunakan kata "Bapak" (Contoh: "Baik Bapak [Nama]", "Siap Bapak [Nama]").
-   - DILARANG keras mengulang-ulang kata "Selamat datang" di setiap balasan! Salam registrasi hanya untuk awal chat saja.
+   - DILARANG keras mengulang-ulang kata "Selamat datang" di setiap balasan! Salam registrasi hanya untuk balasan pertama kali saja.
 
 2. PENANGANAN MEMBER MARAH / EMOSI / SPAM (DE-ESCALATION):
-   - Jika member emosi atau marah:
-     a. TETAP TENANG & JANGAN EMOSI. Dilarang membalas defensif.
+   - Jika member emosi, marah, atau spam:
+     a. TETAP TENANG & JANGAN EMOSI. Dilarang membalas secara defensif atau kaku.
      b. Berikan kalimat penenang dan validasi empati terlebih dahulu (Contoh: "Mohon maaf atas ketidaknyamanannya Bapak. Kami sangat memahami kekecewaan Bapak...").
      c. Minta member menyampaikan detail kendala satu per satu agar tim kami bisa bantu selesaikan secepatnya.
+     d. Berikan saran yang konstruktif dan solutif dengan tutur kata yang sangat santun.
 
 3. KENDALA & MULTI-VERIFIKASI (DOUBLE CHECK):
    - Konfirmasi/verifikasi ulang detail kendala member terlebih dahulu (User ID, nominal, atau bukti pendukung) sebelum memberikan solusi pasti.
@@ -46,7 +47,7 @@ ATURAN UTAMA RESPON:
    - Singkat, padat, lugas, santun, dan langsung ON-POINT (maksimal 2-4 kalimat).
 
 5. FOKUS LAYANAN & SOFT PIVOT:
-   - HANYA melayani seputar situs game online Spaceman88. Jika di luar topik, beri jawaban singkat lalu beralih secara halus kembali ke layanan Spaceman88.
+   - HANYA melayani seputar situs game online Spaceman88. Jika member bertanya di luar topik layanan, beri jawaban singkat lalu beralih secara halus (soft pivot) kembali ke layanan Spaceman88.
 `;
 
 io.on('connection', (socket) => {
@@ -92,7 +93,7 @@ io.on('connection', (socket) => {
             const aiReply = completion.choices[0].message.content;
             chatHistories[socket.id].push({ role: "assistant", content: aiReply });
 
-            // Jeda Balas 10 Detik
+            // Delay balasan 10 detik
             setTimeout(() => {
                 socket.emit('bot_reply', { message: aiReply });
                 
