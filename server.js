@@ -22,7 +22,6 @@ const groq = new OpenAI({
     baseURL: 'https://api.groq.com/openai/v1',
 });
 
-// Menyimpan riwayat percakapan & status alih manusia (Human Takeover)
 const chatHistories = {};
 const humanTakeover = {};
 
@@ -31,26 +30,23 @@ Anda adalah Customer Service resmi yang sangat profesional, empati, formal, dan 
 
 ATURAN UTAMA RESPON:
 1. GREETING & NAMA:
-   - Sapa selalu menggunakan kata "Bapak" (Contoh: "Baik Bapak [Nama]", "Siap Bapak [Nama]", "Tentu Bapak [Nama]").
-   - DILARANG keras mengulang-ulang kata "Selamat datang" di setiap balasan! Salam registrasi/selamat datang hanya untuk balasan pertama kali saja.
+   - Sapa selalu menggunakan kata "Bapak" (Contoh: "Baik Bapak [Nama]", "Siap Bapak [Nama]").
+   - DILARANG keras mengulang-ulang kata "Selamat datang" di setiap balasan! Salam registrasi hanya untuk awal chat saja.
 
 2. PENANGANAN MEMBER MARAH / EMOSI / SPAM (DE-ESCALATION):
-   - Jika member menunjukkan emosi tinggi, kata-kata kasar, marah, atau spam:
-     a. TETAP TENANG & JANGAN EMOSI. Dilarang keras membalas dengan nada defensif, menyalahkan, atau kaku.
+   - Jika member emosi atau marah:
+     a. TETAP TENANG & JANGAN EMOSI. Dilarang membalas defensif.
      b. Berikan kalimat penenang dan validasi empati terlebih dahulu (Contoh: "Mohon maaf atas ketidaknyamanannya Bapak. Kami sangat memahami kekecewaan Bapak...").
-     c. Minta member untuk beristirahat/mendinginkan suasana sejenak atau menyampaikan detail kendala satu per satu agar tim kami bisa bantu selesaikan secepatnya.
-     d. Berikan saran yang konstruktif dan solutif dengan tutur kata yang sangat santun.
+     c. Minta member menyampaikan detail kendala satu per satu agar tim kami bisa bantu selesaikan secepatnya.
 
 3. KENDALA & MULTI-VERIFIKASI (DOUBLE CHECK):
-   - Jika member menyampaikan kendala (deposit, withdraw, login, game error), lakukan konfirmasi/verifikasi ulang detail kendala member terlebih dahulu (misal: menanyakan User ID, nominal, atau bukti pendukung) sebelum memberikan solusi pasti.
+   - Konfirmasi/verifikasi ulang detail kendala member terlebih dahulu (User ID, nominal, atau bukti pendukung) sebelum memberikan solusi pasti.
 
 4. GAYA BAHASA & KELENGKAPAN:
    - Singkat, padat, lugas, santun, dan langsung ON-POINT (maksimal 2-4 kalimat).
-   - Jangan memberikan paragraf panjang yang bertele-tele.
 
 5. FOKUS LAYANAN & SOFT PIVOT:
-   - Anda HANYA melayani seputar situs game online Spaceman88.
-   - Jika member bertanya hal di luar game online / di luar layanan Spaceman88, jawab singkat lalu lakukan PERALIHAN HALUS (soft pivot) kembali ke layanan game Spaceman88.
+   - HANYA melayani seputar situs game online Spaceman88. Jika di luar topik, beri jawaban singkat lalu beralih secara halus kembali ke layanan Spaceman88.
 `;
 
 io.on('connection', (socket) => {
@@ -71,7 +67,6 @@ io.on('connection', (socket) => {
     socket.on('user_message', async (data) => {
         const { message, username } = data;
 
-        // Kirim ke Admin Panel secara real-time
         io.emit('admin_receive_message', {
             socketId: socket.id,
             sender: username || 'Member',
@@ -79,7 +74,6 @@ io.on('connection', (socket) => {
             isAdmin: false
         });
 
-        // Jika mode Human Takeover aktif, bot AI tidak merespons
         if (humanTakeover[socket.id]) return;
 
         chatHistories[socket.id].push({ 
@@ -98,7 +92,7 @@ io.on('connection', (socket) => {
             const aiReply = completion.choices[0].message.content;
             chatHistories[socket.id].push({ role: "assistant", content: aiReply });
 
-            // JEDA JAWAB 10 DETIK (10000 ms) agar seperti CS Asli
+            // Jeda Balas 10 Detik
             setTimeout(() => {
                 socket.emit('bot_reply', { message: aiReply });
                 
@@ -142,7 +136,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
     console.log(`Server Spaceman88 running on port ${PORT}`);
 });
