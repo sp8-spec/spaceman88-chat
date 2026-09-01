@@ -90,7 +90,7 @@ io.on('connection', (socket) => {
         try {
             const completion = await groq.chat.completions.create({
                 messages: chatHistories[socket.id],
-                model: "llama-3.3-70b-versatile",
+                model: "openai/gpt-oss-120b",
                 temperature: 0.5,
                 max_tokens: 250
             });
