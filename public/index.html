@@ -1,75 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spaceman88 Live Support</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0b0f19; color: #fff; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        
+        .chat-card {
+            width: 100%;
+            max-width: 420px;
+            height: 600px;
+            background: #111827;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #1f2937;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #3730a3, #4f46e5);
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-header h3 { font-size: 16px; font-weight: 600; }
+        .chat-header p { font-size: 11px; opacity: 0.8; }
+
+        .chat-body {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #0b0f19;
+        }
+
+        .welcome-box {
+            background: #1e293b;
+            padding: 14px;
+            border-radius: 10px;
+            border-left: 4px solid #4f46e5;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .welcome-box .badge {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 11px;
+            color: #fbbf24;
+            font-weight: 600;
+        }
+
+        .chat-footer {
+            padding: 12px 16px;
+            background: #111827;
+            border-top: 1px solid #1f2937;
+            display: flex;
+            gap: 8px;
+        }
+        .chat-input {
+            flex: 1;
+            background: #1f2937;
+            border: 1px solid #374151;
+            padding: 10px 14px;
+            border-radius: 8px;
+            color: #fff;
+            outline: none;
+            font-size: 13px;
+        }
+        .chat-input:focus { border-color: #4f46e5; }
+        
+        .send-btn {
+            background: #4f46e5;
+            color: #fff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .send-btn:hover { background: #4338ca; }
+
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.4; }
+        .msg.user { align-self: flex-end; background: #4f46e5; color: #fff; border-bottom-right-radius: 2px; }
+        .msg.bot { align-self: flex-start; background: #1e293b; color: #e2e8f0; border-bottom-left-radius: 2px; border: 1px solid #334155; }
+    </style>
+</head>
+<body>
+
+<div class="chat-card">
+    <div class="chat-header">
+        <div>
+            <h3>Spaceman88 Live Support</h3>
+            <p>Layanan Prioritas 24 Jam Nonstop</p>
+        </div>
+    </div>
+
+    <div class="chat-body" id="chatBox">
+        <div class="welcome-box">
+            <strong>Selamat datang Bapak Tami,</strong><br>
+            Terima kasih telah menghubungi Customer Service resmi Spaceman88. Kami siap melayani kebutuhan Anda 24 jam nonstop.
+            <br><span class="badge">Kategori Kendala: Transaksi Depo / WD</span>
+        </div>
+    </div>
+
+    <form class="chat-footer" id="chatForm">
+        <input type="text" id="messageInput" class="chat-input" placeholder="Ketik pesan Anda di sini..." autocomplete="off">
+        <button type="submit" class="send-btn">Kirim</button>
+    </form>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
-  const socket = io();
+    const socket = io();
 
-  // Ambil elemen UI
-  const chatForm = document.querySelector('form') || document.getElementById('chat-form');
-  const messageInput = document.querySelector('input[type="text"]') || document.getElementById('message-input');
-  const chatBox = document.querySelector('.chat-body') || document.getElementById('chat-box');
-  const sendBtn = document.querySelector('button[type="submit"]') || document.getElementById('send-btn');
+    const chatForm = document.getElementById('chatForm');
+    const messageInput = document.getElementById('messageInput');
+    const chatBox = document.getElementById('chatBox');
+    const username = "Bapak Tami";
 
-  // Ambil nama user (contoh dari salam awal: "Bapak Tami")
-  const username = "Bapak Tami"; 
+    socket.emit('join_chat', { username: username, category: 'Transaksi Depo / WD' });
 
-  // Konek ke room chat
-  socket.emit('join_chat', { username: username, category: 'Transaksi Depo / WD' });
-
-  // Fungsi untuk menampilkan gelembung pesan ke layar
-  function appendMessage(sender, text, isUser) {
-    const msgDiv = document.createElement('div');
-    msgDiv.style.margin = "10px 0";
-    msgDiv.style.textAlign = isUser ? "right" : "left";
-    
-    const bubble = document.createElement('div');
-    bubble.style.display = "inline-block";
-    bubble.style.padding = "8px 12px";
-    bubble.style.borderRadius = "10px";
-    bubble.style.maxWidth = "80%";
-    bubble.style.background = isUser ? "#4f46e5" : "#1e293b";
-    bubble.style.color = "#ffffff";
-    bubble.style.fontSize = "13px";
-    bubble.style.lineHeight = "1.4";
-    bubble.innerHTML = `<strong>${sender}</strong><br>${text}`;
-
-    msgDiv.appendChild(bubble);
-    chatBox.appendChild(msgDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
-
-  // Fungsi proses kirim pesan
-  function sendMessage() {
-    const msg = messageInput.value.trim();
-    if (!msg) return;
-
-    // 1. Tampilkan pesan user sendiri ke layar secara instan
-    appendMessage(username, msg, true);
-
-    // 2. Kirim pesan ke backend (server.js)
-    socket.emit('user_message', { message: msg, username: username });
-
-    // 3. Kosongkan kolom input
-    messageInput.value = '';
-  }
-
-  // Event saat tombol Kirim diklik atau tekan Enter
-  if (sendBtn) {
-    sendBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      sendMessage();
-    });
-  }
-
-  if (messageInput) {
-    messageInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
+    chatForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        sendMessage();
-      }
-    });
-  }
+        const text = messageInput.value.trim();
+        if (!text) return;
 
-  // Terima balasan dari CS AI / Human dari server
-  socket.on('bot_reply', (data) => {
-    appendMessage('CS Spaceman88', data.message, false);
-  });
+        // Tampilkan pesan user di layar
+        const userDiv = document.createElement('div');
+        userDiv.className = 'msg user';
+        userDiv.innerText = text;
+        chatBox.appendChild(userDiv);
+
+        // Kirim ke server
+        socket.emit('user_message', { message: text, username: username });
+
+        messageInput.value = '';
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    // Balasan Bot
+    socket.on('bot_reply', (data) => {
+        const botDiv = document.createElement('div');
+        botDiv.className = 'msg bot';
+        botDiv.innerText = data.message;
+        chatBox.appendChild(botDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
 </script>
+</body>
+</html>
