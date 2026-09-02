@@ -11,6 +11,8 @@
     #admin-chat-box::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     #queue-list::-webkit-scrollbar { width: 4px; }
     #queue-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    .chat-text a { color: #818cf8; text-decoration: underline; }
+    .chat-text a:hover { color: #a5b4fc; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
@@ -89,6 +91,20 @@
     const modeStatus = document.getElementById('mode-status');
     const activeRoomTitle = document.getElementById('active-room-title');
 
+    // Fungsi Auto-Link (Ubah URL teks biasa jadi link aktif bisa diklik)
+    function linkify(inputText) {
+      if (!inputText) return '';
+      let replacedText, replacePattern1, replacePattern2;
+
+      replacePattern1 = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gim;
+      replacedText = inputText.replace(replacePattern1, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+      replacePattern2 = /(^|[^\/])(www\.[\S]+(\b|$))/gim;
+      replacedText = replacedText.replace(replacePattern2, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer">$2</a>');
+
+      return replacedText;
+    }
+
     // Minta daftar room saat admin pertama kali terhubung
     socket.on('update_room_list', (rooms) => {
       allRoomsData = rooms;
@@ -111,7 +127,11 @@
 
       roomIds.forEach(id => {
         const room = allRoomsData[id];
-        const lastMsg = room.history.length > 0 ? room.history[room.history.length - 1].text : 'Belum ada pesan...';
+        let lastMsg = 'Belum ada pesan...';
+        if (room.history.length > 0) {
+          const lastItem = room.history[room.history.length - 1];
+          lastMsg = lastItem.text ? lastItem.text : (lastItem.image ? '[Mengirim Gambar]' : '...');
+        }
         const isSelected = id === currentRoomId;
 
         const card = document.createElement('div');
@@ -140,7 +160,7 @@
       const room = allRoomsData[roomId];
       
       updateRoomUI(room);
-      renderQueueList(); // Render ulang sidebar agar highlight aktif berpindah
+      renderQueueList(); 
     }
 
     function updateRoomUI(room) {
@@ -199,11 +219,17 @@
       socket.emit('admin_message', { roomId: currentRoomId, text });
     }
 
-    // Penerimaan Pesan Real-Time Khusus untuk Room yang Sedang Dibuka Admin
+    // Penerimaan Pesan Real-Time
     socket.on('new_message', (msg) => {
-      if (!currentRoomId) return;
-      const room = allRoomsData[currentRoomId];
-      if (room) {
+      // Perbarui history room di memori lokal admin jika room tersebut terdaftar
+      if (allRoomsData[msg.roomId]) {
+        allRoomsData[msg.roomId].history.push(msg);
+        renderQueueList(); // Update preview list di sidebar
+      }
+
+      // Jika pesan masuk untuk room yang sedang aktif dibuka admin saat ini
+      if (currentRoomId === msg.roomId) {
+        const room = allRoomsData[currentRoomId];
         appendMessageToUI(msg, room.username);
         adminChatBox.scrollTop = adminChatBox.scrollHeight;
       }
@@ -211,19 +237,26 @@
 
     function appendMessageToUI(msg, memberUsername) {
       const msgDiv = document.createElement('div');
-      
-      // Deteksi pengirim: Jika pesan dikirim oleh member, tampilkan di KIRI. Jika dari CS/AI, tampilkan di KANAN.
       const isMember = msg.sender === memberUsername;
 
       msgDiv.className = `flex flex-col ${isMember ? 'items-start' : 'items-end'}`;
+
+      let imageHtml = '';
+      if (msg.image) {
+        imageHtml = `<div class="mb-2"><img src="${msg.image}" alt="Bukti Gambar" class="max-w-[200px] rounded-lg border border-slate-700 cursor-pointer" onclick="window.open(this.src)"></div>`;
+      }
+
+      let formattedText = linkify(msg.text);
+
       msgDiv.innerHTML = `
         <span class="text-[10px] text-slate-500 mb-1">${msg.sender}</span>
-        <div class="p-3 rounded-xl text-xs max-w-[70%] ${
+        <div class="p-3 rounded-xl text-xs max-w-[70%] chat-text ${
           isMember 
             ? 'bg-slate-800 text-slate-200 border border-slate-700' 
             : 'bg-indigo-900/80 text-indigo-100 border border-indigo-700/50'
         }">
-          ${msg.text}
+          ${imageHtml}
+          ${formattedText}
         </div>
       `;
       adminChatBox.appendChild(msgDiv);
