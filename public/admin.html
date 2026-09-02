@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Admin CS</title>
+  <title>Dashboard Admin CS - Spaceman88</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     #admin-chat-box::-webkit-scrollbar { width: 4px; }
     #admin-chat-box::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    #queue-list::-webkit-scrollbar { width: 4px; }
+    #queue-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
@@ -17,23 +19,18 @@
   <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
     <div class="flex items-center gap-3">
       <div class="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
-      <h1 class="text-lg font-bold">Support Console Dashboard Slot 24/7</h1>
+      <h1 class="text-lg font-bold">Support Console Dashboard Spaceman88</h1>
     </div>
     <span class="text-xs bg-slate-800 text-slate-400 px-3 py-1 rounded-full border border-slate-700">Status: Active Agent</span>
   </header>
 
   <div class="flex-1 flex overflow-hidden">
-    <!-- Panel Antrean Chat -->
-    <aside class="w-80 bg-slate-900/60 border-r border-slate-800 p-4">
+    <!-- Panel Antrean Chat (Sidebar Daftar Room Member) -->
+    <aside class="w-80 bg-slate-900/60 border-r border-slate-800 p-4 flex flex-col">
       <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Antrean Percakapan</h2>
-      <div class="space-y-2" id="queue-list">
-        <div class="bg-indigo-950/40 border border-indigo-500/30 p-3 rounded-xl cursor-pointer">
-          <div class="flex justify-between items-center">
-            <span class="font-semibold text-sm">session-user-1</span>
-            <span class="w-2 h-2 bg-emerald-400 rounded-full"></span>
-          </div>
-          <p class="text-xs text-slate-400 mt-1 truncate">Pelanggan terhubung...</p>
-        </div>
+      <div class="space-y-2 overflow-y-auto flex-1 pr-1" id="queue-list">
+        <!-- Daftar room akan dimuat secara dinamis oleh JavaScript -->
+        <div class="text-xs text-slate-500 text-center py-4">Memuat antrean member...</div>
       </div>
     </aside>
 
@@ -43,8 +40,8 @@
       <!-- Top Control Bar -->
       <div class="bg-slate-900/80 p-4 border-b border-slate-800 flex justify-between items-center">
         <div>
-          <h2 class="font-semibold text-sm">Percakapan Aktif: session-user-1</h2>
-          <p id="mode-status" class="text-xs text-emerald-400">Mode: AI Autopilot Aktif</p>
+          <h2 id="active-room-title" class="font-semibold text-sm">Pilih ruang chat dari antrean sebelah kiri</h2>
+          <p id="mode-status" class="text-xs text-slate-400">Mode: -</p>
         </div>
 
         <!-- Toggle Switch Bot Off / Ambil Alih -->
@@ -57,16 +54,18 @@
 
       <!-- Admin Chat Box -->
       <div id="admin-chat-box" class="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-950">
-        <!-- Pesan dimuat otomatis -->
+        <div class="flex flex-col items-center justify-center h-full text-slate-500 text-xs">
+          Silakan klik salah satu nama member di panel kiri untuk mulai membalas chat.
+        </div>
       </div>
 
       <!-- Quick Reply Templates untuk Slot -->
       <div class="px-6 py-2 bg-slate-900/40 border-t border-slate-800/60 flex gap-2 overflow-x-auto text-xs">
         <span class="text-slate-400 self-center font-semibold text-[11px]">Template Balasan:</span>
-        <button onclick="sendQuickReply('Halo Bapak! Ada yang bisa kami bantu untuk akun atau transaksinya hari ini?')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">👋 Sapaan Slot</button>
-        <button onclick="sendQuickReply('Boleh diinfokan User ID dan bukti transfernya Bapak? Biar kami bantu cek loket depositnya.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">💳 Cek Depo/WD</button>
-        <button onclick="sendQuickReply('Mohon ditunggu 1-3 menit ya Bapak, transaksi sedang diproses oleh tim keuangan.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">⏳ Proses WD</button>
-        <button onclick="sendQuickReply('Silakan cek bocoran RTP Live terbaru kami melalui menu utama ya Bapak!')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition">🎰 Info RTP</button>
+        <button onclick="sendQuickReply('Halo Bapak! Ada yang bisa kami bantu untuk akun atau transaksinya hari ini?')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">👋 Sapaan Slot</button>
+        <button onclick="sendQuickReply('Boleh diinfokan User ID dan bukti transfernya Bapak? Biar kami bantu cek loket depositnya.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">💳 Cek Depo/WD</button>
+        <button onclick="sendQuickReply('Mohon ditunggu 1-3 menit ya Bapak, transaksi sedang diproses oleh tim keuangan.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">⏳ Proses WD</button>
+        <button onclick="sendQuickReply('Silakan cek bocoran RTP Live terbaru kami melalui menu utama ya Bapak!')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">🎰 Info RTP</button>
       </div>
 
       <!-- Input Balasan Admin -->
@@ -79,25 +78,91 @@
 
   <script>
     const socket = io();
-    const roomId = 'session-user-1';
+    let currentRoomId = null;
+    let allRoomsData = {};
 
+    const queueList = document.getElementById('queue-list');
     const adminChatBox = document.getElementById('admin-chat-box');
     const adminForm = document.getElementById('admin-form');
     const adminInput = document.getElementById('admin-input');
     const takeoverToggle = document.getElementById('takeover-toggle');
     const modeStatus = document.getElementById('mode-status');
+    const activeRoomTitle = document.getElementById('active-room-title');
 
-    // Bergabung ke room pelanggan
-    socket.emit('join_room', { roomId, username: 'CS Admin', category: 'Admin' });
+    // Minta daftar room saat admin pertama kali terhubung
+    socket.on('update_room_list', (rooms) => {
+      allRoomsData = rooms;
+      renderQueueList();
 
-    socket.on('room_status', (status) => {
-      takeoverToggle.checked = status.isHumanTakeover;
-      updateModeText(status.isHumanTakeover);
+      // Jika sedang berada di dalam room aktif, perbarui status/header secara real-time
+      if (currentRoomId && rooms[currentRoomId]) {
+        updateRoomUI(rooms[currentRoomId]);
+      }
     });
 
+    function renderQueueList() {
+      queueList.innerHTML = '';
+      const roomIds = Object.keys(allRoomsData);
+
+      if (roomIds.length === 0) {
+        queueList.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">Belum ada antrean member.</div>';
+        return;
+      }
+
+      roomIds.forEach(id => {
+        const room = allRoomsData[id];
+        const lastMsg = room.history.length > 0 ? room.history[room.history.length - 1].text : 'Belum ada pesan...';
+        const isSelected = id === currentRoomId;
+
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-xl cursor-pointer border transition ${
+          isSelected 
+            ? 'bg-indigo-950/80 border-indigo-500' 
+            : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
+        }`;
+        
+        card.innerHTML = `
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-sm text-slate-200">${room.username}</span>
+            <span class="w-2 h-2 ${room.isHumanTakeover ? 'bg-amber-400' : 'bg-emerald-400'} rounded-full"></span>
+          </div>
+          <p class="text-[11px] text-indigo-300 mt-0.5">Perihal: ${room.category}</p>
+          <p class="text-xs text-slate-400 mt-1 truncate">${lastMsg}</p>
+        `;
+
+        card.onclick = () => switchRoom(id);
+        queueList.appendChild(card);
+      });
+    }
+
+    function switchRoom(roomId) {
+      currentRoomId = roomId;
+      const room = allRoomsData[roomId];
+
+      // Beritahu server bahwa admin join ke room tersebut
+      socket.emit('join_room', { roomId, username: 'CS Admin', category: 'Admin' });
+
+      updateRoomUI(room);
+      renderQueueList(); // Render ulang sidebar agar highlight aktif berpindah
+    }
+
+    function updateRoomUI(room) {
+      activeRoomTitle.innerText = `Percakapan Aktif: ${room.username} (${room.category})`;
+      takeoverToggle.checked = room.isHumanTakeover;
+      updateModeText(room.isHumanTakeover);
+
+      // Render Riwayat Chat
+      adminChatBox.innerHTML = '';
+      room.history.forEach(msg => {
+        appendMessageToUI(msg, room.username);
+      });
+      adminChatBox.scrollTop = adminChatBox.scrollHeight;
+    }
+
     takeoverToggle.onchange = () => {
+      if (!currentRoomId) return;
       const isHumanTakeover = takeoverToggle.checked;
-      socket.emit('toggle_takeover', { roomId, isHumanTakeover });
+      socket.emit('toggle_takeover', { roomId: currentRoomId, isHumanTakeover });
       updateModeText(isHumanTakeover);
     };
 
@@ -112,35 +177,52 @@
         modeStatus.className = 'text-xs text-amber-400 font-semibold';
       } else {
         modeStatus.innerText = 'Mode: AI Autopilot Aktif';
-        modeStatus.className = 'text-xs text-emerald-400';
+        modeStatus.className = 'text-xs text-emerald-400 font-semibold';
       }
     }
 
     adminForm.onsubmit = (e) => {
       e.preventDefault();
+      if (!currentRoomId) {
+        alert('Silakan pilih salah satu antrean chat terlebih dahulu di sebelah kiri!');
+        return;
+      }
       const text = adminInput.value.trim();
       if (text) {
-        socket.emit('admin_message', { roomId, text });
+        socket.emit('admin_message', { roomId: currentRoomId, text });
         adminInput.value = '';
       }
     };
 
     function sendQuickReply(text) {
-      socket.emit('admin_message', { roomId, text });
+      if (!currentRoomId) {
+        alert('Silakan pilih salah satu antrean chat terlebih dahulu di sebelah kiri!');
+        return;
+      }
+      socket.emit('admin_message', { roomId: currentRoomId, text });
     }
 
-    // Penerimaan & Tampilan Pesan
+    // Penerimaan Pesan Real-Time Khusus untuk Room yang Sedang Dibuka Admin
     socket.on('new_message', (msg) => {
+      if (!currentRoomId) return;
+      const room = allRoomsData[currentRoomId];
+      if (room) {
+        appendMessageToUI(msg, room.username);
+        adminChatBox.scrollTop = adminChatBox.scrollHeight;
+      }
+    });
+
+    function appendMessageToUI(msg, memberUsername) {
       const msgDiv = document.createElement('div');
       
-      // Deteksi pengirim: Jika BUKAN mengandung kata 'CS Spaceman88', tampilkan di KIRI (sebagai Member)
-      const isUser = !msg.sender.includes('CS Spaceman88');
+      // Deteksi pengirim: Jika pesan dikirim oleh member, tampilkan di KIRI. Jika dari CS/AI, tampilkan di KANAN.
+      const isMember = msg.sender === memberUsername;
 
-      msgDiv.className = `flex flex-col ${isUser ? 'items-start' : 'items-end'}`;
+      msgDiv.className = `flex flex-col ${isMember ? 'items-start' : 'items-end'}`;
       msgDiv.innerHTML = `
         <span class="text-[10px] text-slate-500 mb-1">${msg.sender}</span>
         <div class="p-3 rounded-xl text-xs max-w-[70%] ${
-          isUser 
+          isMember 
             ? 'bg-slate-800 text-slate-200 border border-slate-700' 
             : 'bg-indigo-900/80 text-indigo-100 border border-indigo-700/50'
         }">
@@ -148,8 +230,7 @@
         </div>
       `;
       adminChatBox.appendChild(msgDiv);
-      adminChatBox.scrollTop = adminChatBox.scrollHeight;
-    });
+    }
   </script>
 </body>
 </html>
