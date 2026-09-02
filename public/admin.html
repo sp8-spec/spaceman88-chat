@@ -138,10 +138,7 @@
     function switchRoom(roomId) {
       currentRoomId = roomId;
       const room = allRoomsData[roomId];
-
-      // Beritahu server bahwa admin join ke room tersebut
-      socket.emit('join_room', { roomId, username: 'CS Admin', category: 'Admin' });
-
+      
       updateRoomUI(room);
       renderQueueList(); // Render ulang sidebar agar highlight aktif berpindah
     }
