@@ -9,9 +9,10 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 
-// PERBAIKAN: Menambahkan maxHttpBufferSize (10MB) agar Socket.io mengizinkan pengiriman file gambar base64
+// Konfigurasi Socket.io dengan batas buffer 10MB untuk pengiriman gambar Base64
 const io = new Server(server, {
-  maxHttpBufferSize: 10 * 1024 * 1024
+  maxHttpBufferSize: 10 * 1024 * 1024,
+  cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
 // Inisialisasi Groq API Key dari file .env
@@ -32,28 +33,28 @@ let analyticsData = {
   totalChatsToday: 0,
   missedChatsToday: 0,
   missedCategories: { 'Deposit/WD': 0, 'Kendala Akun': 0, 'Game/RTP': 0, 'Lainnya': 0 },
-  dailyStats: {} // Format: { "YYYY-MM-DD": { total: 0, missed: 0 } }
+  dailyStats: {} 
 };
 
-// Load data tersimpan jika file ada
+// Load data tersimpan jika file ada dengan penanganan error yang aman
 if (fs.existsSync(DATA_FILE)) {
   try {
-    const rawData = fs.readFileSync(DATA_FILE);
+    const rawData = fs.readFileSync(DATA_FILE, 'utf8');
     const parsed = JSON.parse(rawData);
     rooms = parsed.rooms || {};
     archivedRooms = parsed.archivedRooms || {};
     analyticsData = parsed.analyticsData || analyticsData;
   } catch (e) {
-    console.error('Gagal membaca file data tersimpan:', e);
+    console.error('Gagal membaca file data tersimpan, membuat state baru:', e.message);
   }
 }
 
-// Fungsi helper untuk menyimpan data otomatis ke file json
+// Fungsi helper untuk menyimpan data otomatis ke file json secara aman
 function saveData() {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify({ rooms, archivedRooms, analyticsData }, null, 2));
   } catch (e) {
-    console.error('Gagal menyimpan data:', e);
+    console.error('Gagal menyimpan data ke disk:', e.message);
   }
 }
 
@@ -124,8 +125,9 @@ Masing-masing bonus memiliki syarat & ketentuan yang berlaku.
 
 io.on('connection', (socket) => {
   
-  // Pelanggan bergabung ke ruang obrolan privat masing-masing (Struktur asli tanpa mengubah parameter join_room)
+  // Pelanggan bergabung ke ruang obrolan privat masing-masing
   socket.on('join_room', async ({ roomId, username, category }) => {
+    if (!roomId) return;
     socket.join(roomId);
     
     let isNewRoom = false;
@@ -138,10 +140,9 @@ io.on('connection', (socket) => {
         category: category || 'Umum',
         createdAt: new Date().toISOString().split('T')[0],
         hasResponded: false,
-        memberStatus: 'stay' // Ditambahkan tanpa mengubah logika asli agar kompatibel dengan admin.html
+        memberStatus: 'stay'
       };
       
-      // Hitung statistik chat masuk harian
       const today = new Date().toISOString().split('T')[0];
       analyticsData.totalChatsToday++;
       if (!analyticsData.dailyStats[today]) analyticsData.dailyStats[today] = { total: 0, missed: 0 };
@@ -179,21 +180,17 @@ io.on('connection', (socket) => {
         rooms[roomId].hasResponded = true;
         rooms[roomId].history.push(aiMsg);
         
-        // Agar pesan sapaan langsung disiarkan ke chat room
         io.to(roomId).emit('new_message', aiMsg);
       } catch (err) {
         console.error('Error Welcome AI Groq:', err.message);
       }
     }
 
-    // Simpan perubahan room baru agar persistensi aman saat refresh
     saveData();
 
-    // Kirim riwayat chat spesifik room ini agar tidak hilang saat refresh/reconnect
     socket.emit('load_history', rooms[roomId].history);
     socket.emit('room_status', rooms[roomId]);
     
-    // Kirim pembaruan daftar room & analytics ke admin
     io.emit('update_room_list', rooms);
     io.emit('update_analytics', analyticsData);
   });
@@ -203,12 +200,11 @@ io.on('connection', (socket) => {
     socket.emit('update_analytics', analyticsData);
   });
 
-  // Arsipkan Sesi Chat (Oleh Admin / Member) - Mendukung event 'close_room' dan 'archive_room'
+  // Arsipkan Sesi Chat (Oleh Admin / Member)
   socket.on('close_room', ({ roomId }) => {
     if (rooms[roomId]) {
       rooms[roomId].memberStatus = 'closed';
 
-      // Deteksi Missed Chat jika room ditutup tanpa balasan sama sekali dari sistem/admin
       if (!rooms[roomId].hasResponded) {
         analyticsData.missedChatsToday++;
         const cat = rooms[roomId].category || 'Lainnya';
@@ -272,7 +268,7 @@ io.on('connection', (socket) => {
     socket.emit('update_archive_list', archivedRooms);
   });
 
-  // Menerima pesan dari Pelanggan (Mendukung Teks dan Gambar)
+  // Menerima pesan dari Pelanggan
   socket.on('user_message', async ({ roomId, text, image }) => {
     if (!rooms[roomId]) return;
     const room = rooms[roomId];
@@ -304,7 +300,6 @@ io.on('connection', (socket) => {
         }))
       ];
 
-      // Memanggil API Groq dengan batas max token dinaikkan agar tidak terpotong
       const completion = await groq.chat.completions.create({
         messages: conversationContext,
         model: 'openai/gpt-oss-20b',
@@ -315,7 +310,7 @@ io.on('connection', (socket) => {
       const aiReplyText = completion.choices[0]?.message?.content || 'Mohon maaf Bapak, terjadi kendala teknis pada sistem kami.';
       const aiMsg = { sender: 'CS Spaceman88', text: aiReplyText, image: null, timestamp: new Date() };
 
-      room.hasResponded = true; // Menandakan room sudah direspon AI
+      room.hasResponded = true;
       room.history.push(aiMsg);
       saveData();
 
@@ -333,9 +328,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Menerima pesan dari Admin (CS Manusia) - Mendukung Teks dan Gambar
+  // Menerima pesan dari Admin (CS Manusia)
   socket.on('admin_message', ({ roomId, text, image }) => {
-    if (!rooms[roomId]) rooms[roomId] = { history: [], isHumanTakeover: true, username: 'Member', memberStatus: 'stay' };
+    if (!rooms[roomId]) {
+      rooms[roomId] = { history: [], isHumanTakeover: true, username: 'Member', memberStatus: 'stay', category: 'Umum', createdAt: new Date().toISOString().split('T')[0], hasResponded: true };
+    }
     const room = rooms[roomId];
 
     const adminMsg = { 
@@ -345,7 +342,7 @@ io.on('connection', (socket) => {
       timestamp: new Date() 
     };
 
-    room.hasResponded = true; // Menandakan admin sudah merespon
+    room.hasResponded = true;
     room.history.push(adminMsg);
     saveData();
 
