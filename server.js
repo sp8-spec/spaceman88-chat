@@ -7,7 +7,11 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// PERBAIKAN: Menambahkan maxHttpBufferSize (10MB) agar Socket.io mengizinkan pengiriman file gambar base64
+const io = new Server(server, {
+  maxHttpBufferSize: 10 * 1024 * 1024
+});
 
 // Inisialisasi Groq API Key dari file .env
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
