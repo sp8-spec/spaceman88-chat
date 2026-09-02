@@ -30,7 +30,7 @@
   <!-- Header Dashboard -->
   <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center select-text">
     <div class="flex items-center gap-3">
-      <div class="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
+      <div id="connection-indicator" class="w-3 h-3 bg-emerald-500 rounded-full animate-ping" title="Terhubung ke Server"></div>
       <h1 class="text-lg font-bold">Support Console Dashboard Spaceman88</h1>
     </div>
     
@@ -41,7 +41,7 @@
       <button onclick="switchTab('report')" id="tab-btn-report" class="px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">📊 Report</button>
     </div>
 
-    <span class="text-xs bg-slate-800 text-slate-400 px-3 py-1 rounded-full border border-slate-700">Status: Active Agent</span>
+    <span id="agent-status-badge" class="text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20 font-medium">Status: Online Agent</span>
   </header>
 
   <!-- ================= TAB 1: LIVE CHAT ================= -->
@@ -51,6 +51,10 @@
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Antrean Percakapan</h2>
         <span id="queue-count" class="text-[10px] bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-800">0 Aktif</span>
+      </div>
+      <!-- Kotak Pencarian Antrean Member -->
+      <div class="mb-3">
+        <input type="text" id="search-queue" placeholder="Cari User ID..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 select-text" />
       </div>
       <div class="space-y-2 overflow-y-auto flex-1 pr-1" id="queue-list">
         <div class="text-xs text-slate-500 text-center py-4">Memuat antrean member...</div>
@@ -71,7 +75,7 @@
 
         <div class="flex items-center gap-3">
           <!-- Tombol Close / Selesaikan Chat -->
-          <button id="btn-close-room" onclick="closeCurrentRoom()" class="hidden bg-red-600/80 hover:bg-red-600 text-white text-xs px-3 py-2 rounded-xl font-semibold transition border border-red-500/50">🔒 Selesaikan Chat</button>
+          <button id="btn-close-room" onclick="closeCurrentRoom()" class="hidden bg-rose-600/80 hover:bg-rose-600 text-white text-xs px-3 py-2 rounded-xl font-semibold transition border border-rose-500/50">🔒 Selesaikan Chat</button>
 
           <!-- Toggle Switch Bot Off / Ambil Alih -->
           <label class="flex items-center gap-3 cursor-pointer bg-slate-800 px-4 py-2 rounded-xl border border-slate-700">
@@ -92,10 +96,10 @@
       <!-- Quick Reply Templates untuk Slot -->
       <div class="px-6 py-2 bg-slate-900/40 border-t border-slate-800/60 flex gap-2 overflow-x-auto text-xs">
         <span class="text-slate-400 self-center font-semibold text-[11px]">Template Balasan:</span>
-        <button onclick="sendQuickReply('Halo Bapak! Ada yang bisa kami bantu untuk akun atau transaksinya hari ini?')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">👋 Sapaan Slot</button>
-        <button onclick="sendQuickReply('Boleh diinfokan User ID dan bukti transfernya Bapak? Biar kami bantu cek loket depositnya.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">💳 Cek Depo/WD</button>
-        <button onclick="sendQuickReply('Mohon ditunggu 1-3 menit ya Bapak, transaksi sedang diproses oleh tim keuangan.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">⏳ Proses WD</button>
-        <button onclick="sendQuickReply('Silakan cek bocoran RTP Live terbaru kami melalui menu utama ya Bapak!')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">🎰 Info RTP</button>
+        <button type="button" onclick="sendQuickReply('Halo Bapak! Ada yang bisa kami bantu untuk akun atau transaksinya hari ini?')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">👋 Sapaan Slot</button>
+        <button type="button" onclick="sendQuickReply('Boleh diinfokan User ID dan bukti transfernya Bapak? Biar kami bantu cek loket depositnya.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">💳 Cek Depo/WD</button>
+        <button type="button" onclick="sendQuickReply('Mohon ditunggu 1-3 menit ya Bapak, transaksi sedang diproses oleh tim keuangan.')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">⏳ Proses WD</button>
+        <button type="button" onclick="sendQuickReply('Silakan cek bocoran RTP Live terbaru kami melalui menu utama ya Bapak!')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 transition whitespace-nowrap">🎰 Info RTP</button>
       </div>
 
       <!-- Input Balasan Admin -->
@@ -142,6 +146,20 @@
         </div>
       </div>
 
+      <!-- Analitik Missed Chat & Kategori Kendala -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
+          <p class="text-xs text-slate-400 font-medium">Total Missed Chat (Tanpa Balasan Bot)</p>
+          <h3 id="stat-missed-chat" class="text-2xl font-bold text-rose-400 mt-2">0</h3>
+        </div>
+        <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
+          <h3 class="text-xs font-semibold text-slate-300 mb-2">Kategori Missed Chat</h3>
+          <div id="missed-categories-list" class="space-y-1 text-xs text-slate-400">
+            <span>Memuat data kategori...</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Tabel Aktivitas Terakhir / Log -->
       <div class="bg-slate-900/40 rounded-2xl border border-slate-800 p-5">
         <h3 class="text-sm font-semibold text-slate-300 mb-4">Informasi Sistem</h3>
@@ -157,6 +175,8 @@
     let currentRoomId = null;
     let allRoomsData = {};
     let archiveRoomsData = {};
+    let globalAnalytics = {};
+    let searchQuery = '';
 
     const queueList = document.getElementById('queue-list');
     const archiveList = document.getElementById('archive-list');
@@ -167,6 +187,19 @@
     const modeStatus = document.getElementById('mode-status');
     const activeRoomTitle = document.getElementById('active-room-title');
     const btnCloseRoom = document.getElementById('btn-close-room');
+    const searchQueueInput = document.getElementById('search-queue');
+    const connectionIndicator = document.getElementById('connection-indicator');
+
+    // Indikator status koneksi Socket.io
+    socket.on('connect', () => {
+      connectionIndicator.className = 'w-3 h-3 bg-emerald-500 rounded-full animate-ping';
+      socket.emit('get_archives');
+      socket.emit('get_analytics');
+    });
+
+    socket.on('disconnect', () => {
+      connectionIndicator.className = 'w-3 h-3 bg-rose-500 rounded-full';
+    });
 
     // Fitur Resizable Sidebar Kiri (Melebar / Mengecilkan dengan Drag Mouse)
     const resizer = document.getElementById('drag-resizer');
@@ -183,7 +216,7 @@
     window.addEventListener('mousemove', (e) => {
       if (!isResizing) return;
       const newWidth = e.clientX;
-      if (newWidth >= 200 && newWidth <= 600) { // Batas minimal 200px dan maksimal 600px
+      if (newWidth >= 200 && newWidth <= 600) {
         sidebarChat.style.width = newWidth + 'px';
       }
     });
@@ -211,11 +244,11 @@
       } else if (tabName === 'archive') {
         document.getElementById('tab-content-archive').classList.remove('hidden');
         document.getElementById('tab-btn-archive').className = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition';
-        socket.emit('get_archives'); // Meminta data arsip terbaru dari server agar aman saat di-refresh
-        renderArchiveList();
+        socket.emit('get_archives');
       } else if (tabName === 'report') {
         document.getElementById('tab-content-report').classList.remove('hidden');
         document.getElementById('tab-btn-report').className = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition';
+        socket.emit('get_analytics');
         updateReportStats();
       }
     }
@@ -226,11 +259,24 @@
       return replacedText.replace(/(^|[^\/])(www\.[\S]+(\b|$))/gim, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer">$2</a>');
     }
 
+    // Handler Filter Pencarian Antrean Room Berdasarkan Username
+    searchQueueInput.oninput = (e) => {
+      searchQuery = e.target.value.toLowerCase();
+      renderQueueList();
+    };
+
     socket.on('update_room_list', (rooms) => {
       allRoomsData = rooms;
       renderQueueList();
       if (currentRoomId && rooms[currentRoomId]) {
         updateRoomUI(rooms[currentRoomId]);
+      } else if (currentRoomId && !rooms[currentRoomId]) {
+        // Jika room yang sedang dibuka tiba-tiba ditutup atau di-arsip
+        currentRoomId = null;
+        adminChatBox.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-slate-500 text-xs">Sesi percakapan telah ditutup atau diarsipkan.</div>';
+        activeRoomTitle.innerText = 'Pilih ruang chat dari antrean sebelah kiri';
+        modeStatus.innerText = 'Mode: -';
+        btnCloseRoom.classList.add('hidden');
       }
     });
 
@@ -239,22 +285,28 @@
       renderArchiveList();
     });
 
-    socket.on('load_archives', (archives) => {
-      archiveRoomsData = archives;
-      renderArchiveList();
+    socket.on('update_analytics', (analytics) => {
+      globalAnalytics = analytics;
+      updateReportStats();
     });
 
     function renderQueueList() {
       queueList.innerHTML = '';
       const roomIds = Object.keys(allRoomsData);
+      
+      const filteredRoomIds = roomIds.filter(id => {
+        const room = allRoomsData[id];
+        return room.username.toLowerCase().includes(searchQuery) || room.category.toLowerCase().includes(searchQuery);
+      });
+
       document.getElementById('queue-count').innerText = `${roomIds.length} Aktif`;
 
-      if (roomIds.length === 0) {
-        queueList.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">Belum ada antrean member.</div>';
+      if (filteredRoomIds.length === 0) {
+        queueList.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">Tidak ada antrean yang cocok.</div>';
         return;
       }
 
-      roomIds.forEach(id => {
+      filteredRoomIds.forEach(id => {
         const room = allRoomsData[id];
         let lastMsg = 'Belum ada pesan...';
         if (room.history.length > 0) {
@@ -262,12 +314,11 @@
           lastMsg = lastItem.text ? lastItem.text : (lastItem.image ? '[Mengirim Gambar]' : '...');
         }
         const isSelected = id === currentRoomId;
-
-        // Penanda jika member left/closed chat agar tampil sedikit redup/gelap sesuai permintaan
         const isClosed = room.memberStatus === 'closed';
+
         const memberStatusBadge = isClosed 
-          ? `<span class="bg-rose-500/20 text-rose-400 text-[10px] px-2 py-0.5 rounded-full font-medium">Archived - customer left the chat</span>`
-          : `<span class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-medium">Stay in Room</span>`;
+          ? `<span class="bg-rose-500/20 text-rose-400 text-[10px] px-2 py-0.5 rounded-full font-medium">Archived</span>`
+          : `<span class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-medium">Active</span>`;
 
         const card = document.createElement('div');
         card.className = `p-3 rounded-xl cursor-pointer border transition ${
@@ -290,8 +341,10 @@
     function switchRoom(roomId) {
       currentRoomId = roomId;
       const room = allRoomsData[roomId];
-      updateRoomUI(room);
-      renderQueueList();
+      if (room) {
+        updateRoomUI(room);
+        renderQueueList();
+      }
     }
 
     function updateRoomUI(room) {
@@ -363,11 +416,8 @@
     }
 
     socket.on('new_message', (msg) => {
-      if (allRoomsData[msg.roomId]) {
-        allRoomsData[msg.roomId].history.push(msg);
-        renderQueueList();
-      }
-      if (currentRoomId === msg.roomId) {
+      // Ditangani oleh update_room_list dari backend, tapi tambahkan fallback aman
+      if (currentRoomId === msg.roomId && allRoomsData[currentRoomId]) {
         const room = allRoomsData[currentRoomId];
         appendMessageToUI(msg, room.username, adminChatBox);
         adminChatBox.scrollTop = adminChatBox.scrollHeight;
@@ -381,7 +431,7 @@
 
       let imageHtml = '';
       if (msg.image) {
-        imageHtml = `<div class="mb-2"><img src="${msg.image}" alt="Bukti Gambar" class="max-w-[200px] rounded-lg border border-slate-700 cursor-pointer" onclick="window.open(this.src)"></div>`;
+        imageHtml = `<div class="mb-2"><img src="${msg.image}" alt="Bukti Gambar" class="max-w-[200px] rounded-lg border border-slate-700 cursor-pointer hover:opacity-95 transition" onclick="window.open(this.src)"></div>`;
       }
 
       msgDiv.innerHTML = `
@@ -423,11 +473,12 @@
 
     function viewArchiveDetail(id) {
       const room = archiveRoomsData[id];
+      if (!room) return;
       const detailBox = document.getElementById('archive-detail-box');
       detailBox.innerHTML = `
         <div class="mb-4 pb-3 border-b border-slate-800">
           <h3 class="font-semibold text-sm text-slate-200">Arsip Percakapan: ${room.username} (${room.category})</h3>
-          <p class="text-xs text-slate-400">Status: Selesai / Ditutup</p>
+          <p class="text-xs text-slate-400">Status: Selesai / Ditutup pada ${room.closedAt || 'Waktu tidak tercatat'}</p>
         </div>
         <div id="archive-chat-history" class="space-y-4 flex-1 overflow-y-auto pr-2"></div>
       `;
@@ -441,9 +492,25 @@
     function updateReportStats() {
       const activeCount = Object.keys(allRoomsData).length;
       const archivedCount = Object.keys(archiveRoomsData).length;
-      document.getElementById('stat-total-chat').innerText = activeCount + archivedCount;
+      
+      document.getElementById('stat-total-chat').innerText = (globalAnalytics.totalChatsToday !== undefined) ? globalAnalytics.totalChatsToday : (activeCount + archivedCount);
       document.getElementById('stat-archived-chat').innerText = archivedCount;
       document.getElementById('stat-active-chat').innerText = activeCount;
+      
+      if (document.getElementById('stat-missed-chat')) {
+        document.getElementById('stat-missed-chat').innerText = globalAnalytics.missedChatsToday || 0;
+      }
+
+      const categoriesListContainer = document.getElementById('missed-categories-list');
+      if (categoriesListContainer && globalAnalytics.missedCategories) {
+        categoriesListContainer.innerHTML = '';
+        for (const [cat, count] of Object.entries(globalAnalytics.missedCategories)) {
+          const row = document.createElement('div');
+          row.className = 'flex justify-between items-center py-1 border-b border-slate-800/40 text-xs';
+          row.innerHTML = `<span class="text-slate-300">${cat}</span><span class="font-bold text-rose-400">${count}</span>`;
+          categoriesListContainer.appendChild(row);
+        }
+      }
     }
   </script>
 </body>
