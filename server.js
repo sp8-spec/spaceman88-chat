@@ -157,13 +157,13 @@ io.on('connection', (socket) => {
     if (isNewRoom) {
       try {
         const welcomePrompt = [
-          { 
-            role: 'system', 
-            content: `${SYSTEM_PROMPT}\nData Pelanggan Saat Ini -> Username ID: ${rooms[roomId].username}, Kategori Perihal: ${rooms[roomId].category}` 
+          {  
+            role: 'system',  
+            content: `${SYSTEM_PROMPT}\nData Pelanggan Saat Ini -> Username ID: ${rooms[roomId].username}, Kategori Perihal: ${rooms[roomId].category}`  
           },
-          { 
-            role: 'user', 
-            content: "Halo, saya baru saja masuk ke live chat." 
+          {  
+            role: 'user',  
+            content: "Halo, saya baru saja masuk ke live chat."  
           }
         ];
 
@@ -191,6 +191,7 @@ io.on('connection', (socket) => {
     socket.emit('load_history', rooms[roomId].history);
     socket.emit('room_status', rooms[roomId]);
     
+    // Broadcast perubahan list room ke semua admin yang terhubung di PC manapun
     io.emit('update_room_list', rooms);
     io.emit('update_analytics', analyticsData);
   });
@@ -273,26 +274,26 @@ io.on('connection', (socket) => {
     if (!rooms[roomId]) return;
     const room = rooms[roomId];
 
-    const userMsg = { 
-      sender: room.username, 
-      text: text || '', 
-      image: image || null, 
-      timestamp: new Date() 
+    const userMsg = {  
+      sender: room.username,  
+      text: text || '',  
+      image: image || null,  
+      timestamp: new Date()  
     };
     room.history.push(userMsg);
     saveData();
     
     io.to(roomId).emit('new_message', userMsg);
-    io.emit('update_room_list', rooms);
+    io.emit('update_room_list', rooms); // Memastikan list room ter-update di semua PC admin
 
     // Jika CS Manusia mengambil alih, AI tidak membalas
     if (room.isHumanTakeover) return;
 
     try {
       const conversationContext = [
-        { 
-          role: 'system', 
-          content: `${SYSTEM_PROMPT}\nData Pelanggan Saat Ini -> Username ID: ${room.username}, Kategori Perihal: ${room.category}` 
+        {  
+          role: 'system',  
+          content: `${SYSTEM_PROMPT}\nData Pelanggan Saat Ini -> Username ID: ${room.username}, Kategori Perihal: ${room.category}`  
         },
         ...room.history.slice(-6).map(m => ({
           role: m.sender === room.username ? 'user' : 'assistant',
@@ -315,7 +316,7 @@ io.on('connection', (socket) => {
       saveData();
 
       io.to(roomId).emit('new_message', aiMsg);
-      io.emit('update_room_list', rooms);
+      io.emit('update_room_list', rooms); // Broadcast pembaruan list room setelah bot merespons
 
     } catch (err) {
       console.error('Error Groq API:', err.message);
@@ -335,11 +336,11 @@ io.on('connection', (socket) => {
     }
     const room = rooms[roomId];
 
-    const adminMsg = { 
-      sender: 'CS Spaceman88 (Senior)', 
-      text: text || '', 
-      image: image || null, 
-      timestamp: new Date() 
+    const adminMsg = {  
+      sender: 'CS Spaceman88 (Senior)',  
+      text: text || '',  
+      image: image || null,  
+      timestamp: new Date()  
     };
 
     room.hasResponded = true;
@@ -347,7 +348,7 @@ io.on('connection', (socket) => {
     saveData();
 
     io.to(roomId).emit('new_message', adminMsg);
-    io.emit('update_room_list', rooms);
+    io.emit('update_room_list', rooms); // Memastikan admin di PC lain langsung melihat update list/pesan terbaru
   });
 
   // Mengubah status Ambil Alih (Human Takeover)
@@ -356,7 +357,7 @@ io.on('connection', (socket) => {
       rooms[roomId].isHumanTakeover = isHumanTakeover;
       saveData();
       io.to(roomId).emit('takeover_updated', isHumanTakeover);
-      io.emit('update_room_list', rooms);
+      io.emit('update_room_list', rooms); // Memastikan status takeover berubah di semua layar PC admin
     }
   });
 });
