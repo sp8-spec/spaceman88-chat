@@ -18,6 +18,15 @@ app.get('/admin', (req, res) => {
 });
 
 const rooms = {};
+const archivedRooms = {}; // Penyimpanan untuk arsip chat
+
+// Objek untuk laporan analytics harian (Total masuk, Missed chat, Kategori)
+let analyticsData = {
+  totalChatsToday: 0,
+  missedChatsToday: 0,
+  missedCategories: { 'Deposit/WD': 0, 'Kendala Akun': 0, 'Game/RTP': 0, 'Lainnya': 0 },
+  dailyStats: {} // Format: { "YYYY-MM-DD": { total: 0, missed: 0 } }
+};
 
 // SYSTEM PROMPT CS Virtual Spaceman88 (Formal & Premium)
 const SYSTEM_PROMPT = `
@@ -95,8 +104,16 @@ io.on('connection', (socket) => {
         isHumanTakeover: false, 
         history: [], 
         username: username || 'Member Baru', 
-        category: category || 'Umum' 
+        category: category || 'Umum',
+        createdAt: new Date().toISOString().split('T')[0],
+        hasResponded: false
       };
+      
+      // Hitung statistik chat masuk harian
+      const today = new Date().toISOString().split('T')[0];
+      analyticsData.totalChatsToday++;
+      if (!analyticsData.dailyStats[today]) analyticsData.dailyStats[today] = { total: 0, missed: 0 };
+      analyticsData.dailyStats[today].total++;
     } else {
       if (username) rooms[roomId].username = username;
       if (category) rooms[roomId].category = category;
@@ -106,19 +123,63 @@ io.on('connection', (socket) => {
     socket.emit('load_history', rooms[roomId].history);
     socket.emit('room_status', rooms[roomId]);
     
-    // Kirim pembaruan daftar room ke seluruh admin yang terhubung
+    // Kirim pembaruan daftar room & analytics ke admin
     io.emit('update_room_list', rooms);
+    io.emit('update_analytics', analyticsData);
   });
 
-  // Menerima pesan dari Pelanggan
-  socket.on('user_message', async ({ roomId, text }) => {
+  // Kirim data analytics saat admin meminta
+  socket.on('get_analytics', () => {
+    socket.emit('update_analytics', analyticsData);
+  });
+
+  // Arsipkan Sesi Chat (Oleh Admin / Member)
+  socket.on('archive_room', (roomId) => {
+    if (rooms[roomId]) {
+      // Deteksi Missed Chat jika room ditutup tanpa balasan sama sekali dari sistem/admin
+      if (!rooms[roomId].hasResponded) {
+        analyticsData.missedChatsToday++;
+        const cat = rooms[roomId].category || 'Lainnya';
+        if (analyticsData.missedCategories[cat] !== undefined) {
+          analyticsData.missedCategories[cat]++;
+        } else {
+          analyticsData.missedCategories['Lainnya']++;
+        }
+        
+        const today = new Date().toISOString().split('T')[0];
+        if (analyticsData.dailyStats[today]) analyticsData.dailyStats[today].missed++;
+      }
+
+      archivedRooms[roomId] = {
+        ...rooms[roomId],
+        closedAt: new Date().toLocaleString()
+      };
+      delete rooms[roomId];
+
+      io.emit('update_room_list', rooms);
+      io.emit('update_archive_list', archivedRooms);
+      io.emit('update_analytics', analyticsData);
+    }
+  });
+
+  // Kirim daftar arsip saat admin meminta
+  socket.on('get_archives', () => {
+    socket.emit('update_archive_list', archivedRooms);
+  });
+
+  // Menerima pesan dari Pelanggan (Mendukung Teks dan Gambar)
+  socket.on('user_message', async ({ roomId, text, image }) => {
     if (!rooms[roomId]) return;
     const room = rooms[roomId];
 
-    const userMsg = { sender: room.username, text, timestamp: new Date() };
+    const userMsg = { 
+      sender: room.username, 
+      text: text || '', 
+      image: image || null, 
+      timestamp: new Date() 
+    };
     room.history.push(userMsg);
     
-    // KIRIM PESAN HANYA KE ROOM TERSEBUT (Tidak bocor ke room member lain)
     io.to(roomId).emit('new_message', userMsg);
     io.emit('update_room_list', rooms);
 
@@ -133,11 +194,11 @@ io.on('connection', (socket) => {
         },
         ...room.history.slice(-6).map(m => ({
           role: m.sender === room.username ? 'user' : 'assistant',
-          content: m.text
+          content: m.text + (m.image ? ' [Mengirim Gambar]' : '')
         }))
       ];
 
-      // Memanggil API Groq
+      // Memanggil API Groq dengan batas max token dinaikkan agar tidak terpotong
       const completion = await groq.chat.completions.create({
         messages: conversationContext,
         model: 'openai/gpt-oss-20b',
@@ -145,27 +206,37 @@ io.on('connection', (socket) => {
         max_completion_tokens: 1000,
       });
 
-      const aiReplyText = completion.choices[0]?.message?.content || 'Mohon maaf Bapak, terjadi kendala teknis pada sistem kami. Silakan tunggu sejenak, petugas CS kami akan segera melayani Bapak.';
-      const aiMsg = { sender: 'CS Spaceman88', text: aiReplyText, timestamp: new Date() };
+      const aiReplyText = completion.choices[0]?.message?.content || 'Mohon maaf Bapak, terjadi kendala teknis pada sistem kami.';
+      const aiMsg = { sender: 'CS Spaceman88', text: aiReplyText, image: null, timestamp: new Date() };
 
+      room.hasResponded = true; // Menandakan room sudah direspon AI
       room.history.push(aiMsg);
       io.to(roomId).emit('new_message', aiMsg);
       io.emit('update_room_list', rooms);
 
     } catch (err) {
       console.error('Error Groq API:', err.message);
-      const errorMsg = { sender: 'CS Spaceman88', text: 'Mohon maaf Bapak, sistem respon otomatis sedang mengalami kendala. Petugas CS kami akan segera menyapa Bapak.', timestamp: new Date() };
+      const errorMsg = { sender: 'CS Spaceman88', text: 'Mohon maaf Bapak, sistem respon otomatis sedang mengalami kendala.', timestamp: new Date() };
       room.history.push(errorMsg);
       io.to(roomId).emit('new_message', errorMsg);
       io.emit('update_room_list', rooms);
     }
   });
 
-  // Menerima pesan dari Admin (CS Manusia)
-  socket.on('admin_message', ({ roomId, text }) => {
+  // Menerima pesan dari Admin (CS Manusia) - Mendukung Teks dan Gambar
+  socket.on('admin_message', ({ roomId, text, image }) => {
     if (!rooms[roomId]) return;
-    const adminMsg = { sender: 'CS Spaceman88 (Senior)', text, timestamp: new Date() };
-    rooms[roomId].history.push(adminMsg);
+    const room = rooms[roomId];
+
+    const adminMsg = { 
+      sender: 'CS Spaceman88 (Senior)', 
+      text: text || '', 
+      image: image || null, 
+      timestamp: new Date() 
+    };
+
+    room.hasResponded = true; // Menandakan admin sudah merespon
+    room.history.push(adminMsg);
     io.to(roomId).emit('new_message', adminMsg);
     io.emit('update_room_list', rooms);
   });
