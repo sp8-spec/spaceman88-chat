@@ -97,13 +97,17 @@
   <script>
     const socket = io();
 
-    let roomId = localStorage.getItem('spaceman_room_id');
+    // Menggunakan sessionStorage agar aman saat di-refresh, tapi hilang saat tab/browser ditutup atau diclose chat
+    let roomId = sessionStorage.getItem('spaceman_room_id');
     if (!roomId) {
       roomId = 'room_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
-      localStorage.setItem('spaceman_room_id', roomId);
+      sessionStorage.setItem('spaceman_room_id', roomId);
     }
 
-    let userProfile = { username: localStorage.getItem('spaceman_username') || '', category: localStorage.getItem('spaceman_category') || '' };
+    let userProfile = { 
+      username: sessionStorage.getItem('spaceman_username') || '', 
+      category: sessionStorage.getItem('spaceman_category') || '' 
+    };
 
     const chatToggle = document.getElementById('chat-toggle');
     const chatWidget = document.getElementById('chat-widget');
@@ -130,6 +134,7 @@
       return replacedText.replace(/(^|[^\/])(www\.[\S]+(\b|$))/gim, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer">$2</a>');
     }
 
+    // Cek jika data sesi sudah ada (misal setelah direfresh), langsung masuk ke room chat
     if (userProfile.username && userProfile.category) {
       usernameInput.value = userProfile.username;
       categoryInput.value = userProfile.category;
@@ -140,13 +145,14 @@
       closeChatBtn.classList.remove('hidden');
     }
 
+    // Submit Form Pre-Chat (Pertama kali isi)
     prechatForm.onsubmit = (e) => {
       e.preventDefault();
       userProfile.username = usernameInput.value.trim();
       userProfile.category = categoryInput.value;
 
-      localStorage.setItem('spaceman_username', userProfile.username);
-      localStorage.setItem('spaceman_category', userProfile.category);
+      sessionStorage.setItem('spaceman_username', userProfile.username);
+      sessionStorage.setItem('spaceman_category', userProfile.category);
 
       socket.emit('join_room', { roomId, username: userProfile.username, category: userProfile.category });
 
@@ -155,14 +161,12 @@
       closeChatBtn.classList.remove('hidden');
     };
 
-    // Tombol close chat oleh member
+    // Tombol close chat oleh member (Hanya saat diklik ini sesi di-reset total)
     closeChatBtn.onclick = () => {
       if (confirm("Apakah Anda yakin ingin mengakhiri sesi percakapan ini?")) {
         socket.emit('archive_room', roomId);
-        localStorage.removeItem('spaceman_room_id');
-        localStorage.removeItem('spaceman_username');
-        localStorage.removeItem('spaceman_category');
-        location.reload();
+        sessionStorage.clear(); // Hapus data sesi
+        location.reload(); // Refresh untuk membuat sesi baru dari form pre-chat
       }
     };
 
