@@ -13,12 +13,22 @@
     #queue-list::-webkit-scrollbar-thumb, #archive-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     .chat-text a { color: #818cf8; text-decoration: underline; }
     .chat-text a:hover { color: #a5b4fc; }
+    /* Styling untuk resizer kolom kiri */
+    .resizer {
+      width: 5px;
+      cursor: col-resize;
+      background: transparent;
+      transition: background 0.2s;
+    }
+    .resizer:hover, .resizer.active {
+      background: #4f46e5;
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans select-none">
 
   <!-- Header Dashboard -->
-  <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center select-text">
     <div class="flex items-center gap-3">
       <div class="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
       <h1 class="text-lg font-bold">Support Console Dashboard Spaceman88</h1>
@@ -36,8 +46,8 @@
 
   <!-- ================= TAB 1: LIVE CHAT ================= -->
   <div id="tab-content-chat" class="flex-1 flex overflow-hidden">
-    <!-- Panel Antrean Chat (Sidebar Daftar Room Member) -->
-    <aside class="w-80 bg-slate-900/60 border-r border-slate-800 p-4 flex flex-col">
+    <!-- Panel Antrean Chat (Sidebar Daftar Room Member) dengan Lebar Dinamis -->
+    <aside id="sidebar-chat" style="width: 320px;" class="bg-slate-900/60 border-r border-slate-800 p-4 flex flex-col shrink-0">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Antrean Percakapan</h2>
         <span id="queue-count" class="text-[10px] bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-800">0 Aktif</span>
@@ -47,8 +57,11 @@
       </div>
     </aside>
 
+    <!-- Garis Pembuat Lebar/Geser (Resizer) -->
+    <div id="drag-resizer" class="resizer"></div>
+
     <!-- Main Chat Room Area -->
-    <main class="flex-1 flex flex-col bg-slate-950">
+    <main class="flex-1 flex flex-col bg-slate-950 overflow-hidden">
       <!-- Top Control Bar -->
       <div class="bg-slate-900/80 p-4 border-b border-slate-800 flex justify-between items-center">
         <div>
@@ -70,7 +83,7 @@
       </div>
 
       <!-- Admin Chat Box -->
-      <div id="admin-chat-box" class="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-950">
+      <div id="admin-chat-box" class="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-950 select-text">
         <div class="flex flex-col items-center justify-center h-full text-slate-500 text-xs">
           Silakan klik salah satu nama member di panel kiri untuk mulai membalas chat.
         </div>
@@ -87,7 +100,7 @@
 
       <!-- Input Balasan Admin -->
       <form id="admin-form" class="p-4 bg-slate-900 border-t border-slate-800 flex gap-3">
-        <input id="admin-input" type="text" placeholder="Ketik balasan manual sebagai CS Agent..." class="flex-1 bg-slate-950 text-white text-xs rounded-xl px-4 py-3 border border-slate-800 focus:outline-none focus:border-indigo-500" />
+        <input id="admin-input" type="text" placeholder="Ketik balasan manual sebagai CS Agent..." class="flex-1 bg-slate-950 text-white text-xs rounded-xl px-4 py-3 border border-slate-800 focus:outline-none focus:border-indigo-500 select-text" />
         <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-6 py-3 rounded-xl font-semibold transition">Kirim (CS)</button>
       </form>
     </main>
@@ -101,7 +114,7 @@
         <div class="text-xs text-slate-500 text-center py-4">Belum ada arsip percakapan.</div>
       </div>
     </aside>
-    <main class="flex-1 flex flex-col bg-slate-950 p-6 overflow-y-auto" id="archive-detail-box">
+    <main class="flex-1 flex flex-col bg-slate-950 p-6 overflow-y-auto select-text" id="archive-detail-box">
       <div class="flex flex-col items-center justify-center h-full text-slate-500 text-xs">
         Pilih arsip percakapan di sebelah kiri untuk melihat riwayat chat terdahulu.
       </div>
@@ -109,7 +122,7 @@
   </div>
 
   <!-- ================= TAB 3: REPORT ================= -->
-  <div id="tab-content-report" class="flex-1 hidden overflow-y-auto p-8 bg-slate-950">
+  <div id="tab-content-report" class="flex-1 hidden overflow-y-auto p-8 bg-slate-950 select-text">
     <div class="max-w-4xl mx-auto space-y-6">
       <h2 class="text-base font-bold text-slate-200">Laporan & Statistik Support Console</h2>
       
@@ -155,6 +168,34 @@
     const activeRoomTitle = document.getElementById('active-room-title');
     const btnCloseRoom = document.getElementById('btn-close-room');
 
+    // Fitur Resizable Sidebar Kiri (Melebar / Mengecilkan dengan Drag Mouse)
+    const resizer = document.getElementById('drag-resizer');
+    const sidebarChat = document.getElementById('sidebar-chat');
+    let isResizing = false;
+
+    resizer.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      resizer.classList.add('active');
+      document.body.style.cursor = 'col-resize';
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      const newWidth = e.clientX;
+      if (newWidth >= 200 && newWidth <= 600) { // Batas minimal 200px dan maksimal 600px
+        sidebarChat.style.width = newWidth + 'px';
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        resizer.classList.remove('active');
+        document.body.style.cursor = 'default';
+      }
+    });
+
     function switchTab(tabName) {
       document.getElementById('tab-content-chat').classList.add('hidden');
       document.getElementById('tab-content-archive').classList.add('hidden');
@@ -170,6 +211,7 @@
       } else if (tabName === 'archive') {
         document.getElementById('tab-content-archive').classList.remove('hidden');
         document.getElementById('tab-btn-archive').className = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition';
+        socket.emit('get_archives'); // Meminta data arsip terbaru dari server agar aman saat di-refresh
         renderArchiveList();
       } else if (tabName === 'report') {
         document.getElementById('tab-content-report').classList.remove('hidden');
@@ -197,6 +239,11 @@
       renderArchiveList();
     });
 
+    socket.on('load_archives', (archives) => {
+      archiveRoomsData = archives;
+      renderArchiveList();
+    });
+
     function renderQueueList() {
       queueList.innerHTML = '';
       const roomIds = Object.keys(allRoomsData);
@@ -216,20 +263,20 @@
         }
         const isSelected = id === currentRoomId;
 
-        // Badge Status Member (Stay / Close)
-        // Jika member melakukan close chat, status member bisa ditandai 'closed' atau 'stay'
-        const memberStatusBadge = room.memberStatus === 'closed' 
-          ? `<span class="bg-rose-500/20 text-rose-400 text-[10px] px-2 py-0.5 rounded-full font-medium">Closed Chat</span>`
+        // Penanda jika member left/closed chat agar tampil sedikit redup/gelap sesuai permintaan
+        const isClosed = room.memberStatus === 'closed';
+        const memberStatusBadge = isClosed 
+          ? `<span class="bg-rose-500/20 text-rose-400 text-[10px] px-2 py-0.5 rounded-full font-medium">Archived - customer left the chat</span>`
           : `<span class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-medium">Stay in Room</span>`;
 
         const card = document.createElement('div');
         card.className = `p-3 rounded-xl cursor-pointer border transition ${
-          isSelected ? 'bg-indigo-950/80 border-indigo-500' : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
+          isClosed ? 'bg-slate-900/40 opacity-60 border-slate-800 text-slate-400' : (isSelected ? 'bg-indigo-950/80 border-indigo-500 text-white' : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 text-white')
         }`;
         
         card.innerHTML = `
           <div class="flex justify-between items-center mb-1">
-            <span class="font-semibold text-sm text-slate-200">${room.username}</span>
+            <span class="font-semibold text-sm ${isClosed ? 'text-slate-400' : 'text-slate-200'}">${room.username}</span>
             ${memberStatusBadge}
           </div>
           <p class="text-[11px] text-indigo-300 mt-0.5">Perihal: ${room.category}</p>
