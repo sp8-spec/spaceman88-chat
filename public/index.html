@@ -39,7 +39,7 @@
       <button id="chat-close" class="text-indigo-200 hover:text-white font-bold text-sm">✕</button>
     </div>
 
-    <!-- TAMPILAN 1: FORM PRE-CHAT -->
+    <!-- TAMPILAN 1: FORM PRE-CHAT (USERNAME & KATEGORI) -->
     <div id="prechat-screen" class="flex-1 p-6 flex flex-col justify-center bg-slate-900">
       <div class="text-center mb-5">
         <h4 class="font-bold text-slate-100 text-base">Selamat Datang di Spaceman88</h4>
@@ -56,10 +56,10 @@
           <label class="block text-xs text-slate-300 mb-1 font-medium">Kategori Perihal</label>
           <select id="category-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" required>
             <option value="" disabled selected>-- Pilih Perihal Kendala --</option>
-            <option value="Transaksi Depo / WD">Transaksi Deposit / Withdraw</option>
-            <option value="Bonus & Promo">Informasi Bonus & Promo</option>
-            <option value="Lupa Akun / Kata Sandi">Kendala Akun & Kata Sandi</option>
-            <option value="Kendala Lainnya">Kendala Lainnya</option>
+            <option value="Deposit/WD">Transaksi Deposit / Withdraw</option>
+            <option value="Kendala Akun">Kendala Akun & Kata Sandi</option>
+            <option value="Game/RTP">Informasi Game & RTP</option>
+            <option value="Lainnya">Kendala Lainnya</option>
           </select>
         </div>
 
@@ -73,7 +73,7 @@
     <div id="chat-screen" class="hidden flex-1 flex flex-col h-full overflow-hidden">
       <!-- Area Pesan -->
       <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/60">
-        <!-- Welcoming message dimuat via JS -->
+        <!-- Riwayat / Pesan Masuk dimuat di sini -->
       </div>
 
       <!-- Form Kirim Pesan & Gambar -->
@@ -100,7 +100,10 @@
       localStorage.setItem('spaceman_room_id', roomId);
     }
 
-    let userProfile = { username: localStorage.getItem('spaceman_username') || '', category: localStorage.getItem('spaceman_category') || '' };
+    let userProfile = { 
+      username: localStorage.getItem('spaceman_username') || '', 
+      category: localStorage.getItem('spaceman_category') || '' 
+    };
 
     const chatToggle = document.getElementById('chat-toggle');
     const chatWidget = document.getElementById('chat-widget');
@@ -126,7 +129,7 @@
       return replacedText.replace(/(^|[^\/])(www\.[\S]+(\b|$))/gim, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer">$2</a>');
     }
 
-    // Jika member sudah pernah isi form sebelumnya di browser ini, langsung bypass ke room chat
+    // Jika user sudah pernah mengisi form sebelumnya di browser ini, langsung masuk ke chat screen
     if (userProfile.username && userProfile.category) {
       usernameInput.value = userProfile.username;
       categoryInput.value = userProfile.category;
@@ -134,10 +137,9 @@
       socket.emit('join_room', { roomId, username: userProfile.username, category: userProfile.category });
       prechatScreen.classList.add('hidden');
       chatScreen.classList.remove('hidden');
-      appendWelcomeMessage();
     }
 
-    // Submit Form Pre-Chat
+    // Submit Form Pre-Chat (Username & Kategori)
     prechatForm.onsubmit = (e) => {
       e.preventDefault();
       userProfile.username = usernameInput.value.trim();
@@ -150,22 +152,17 @@
 
       prechatScreen.classList.add('hidden');
       chatScreen.classList.remove('hidden');
-
-      appendWelcomeMessage();
     };
 
-    function appendWelcomeMessage() {
-      const welcomeDiv = document.createElement('div');
-      welcomeDiv.className = 'bg-slate-900 text-slate-200 p-3.5 rounded-xl text-xs border border-slate-800 space-y-1.5 shadow-sm';
-      welcomeDiv.innerHTML = `
-        <p class="font-bold text-indigo-400">Selamat datang Bapak ${userProfile.username},</p>
-        <p>Terima kasih telah menghubungi Customer Service resmi Spaceman88. Kami siap melayani kebutuhan Anda 24 jam nonstop.</p>
-        <p class="text-[11px] text-slate-400 pt-1 border-t border-slate-800">Kategori Kendala: <span class="text-amber-400 font-medium">${userProfile.category || 'Umum'}</span></p>
-      `;
-      chatBox.appendChild(welcomeDiv);
-    }
+    // Load riwayat chat yang tersimpan di server saat terhubung
+    socket.on('load_history', (history) => {
+      chatBox.innerHTML = '';
+      history.forEach(msg => {
+        appendMessageUI(msg);
+      });
+    });
 
-    // Send Message (Teks & Gambar)
+    // Kirim Pesan & Gambar (Member)
     userForm.onsubmit = (e) => {
       e.preventDefault();
       const text = userInput.value.trim();
@@ -186,8 +183,8 @@
       }
     };
 
-    // Receive New Message
-    socket.on('new_message', (msg) => {
+    // Render Pesan ke UI Chat Box
+    function appendMessageUI(msg) {
       const msgDiv = document.createElement('div');
       const isUser = msg.sender === userProfile.username;
 
@@ -195,7 +192,7 @@
 
       let imageHtml = '';
       if (msg.image) {
-        imageHtml = `<div class="mb-2"><img src="${msg.image}" alt="Bukti Gambar" class="max-w-[200px] rounded-lg border border-slate-700 cursor-pointer" onclick="window.open(this.src)"></div>`;
+        imageHtml = `<div class="mb-2"><img src="${msg.image}" alt="Lampiran Gambar" class="max-w-[200px] rounded-lg border border-slate-700 cursor-pointer" onclick="window.open(this.src)"></div>`;
       }
 
       msgDiv.innerHTML = `
@@ -207,6 +204,11 @@
       `;
       chatBox.appendChild(msgDiv);
       chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Tangkap Pesan Baru Realtime dari Socket
+    socket.on('new_message', (msg) => {
+      appendMessageUI(msg);
     });
   </script>
 </body>
