@@ -8,7 +8,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// Menambahkan maxHttpBufferSize (10MB) agar Socket.io mengizinkan pengiriman file gambar base64
+// PERBAIKAN: Menambahkan maxHttpBufferSize (10MB) agar Socket.io mengizinkan pengiriman file gambar base64
 const io = new Server(server, {
   maxHttpBufferSize: 10 * 1024 * 1024
 });
@@ -99,7 +99,7 @@ Masing-masing bonus memiliki syarat & ketentuan yang berlaku.
 
 io.on('connection', (socket) => {
   
-  // Pelanggan bergabung ke ruang obrolan privat masing-masing (Kembali ke kode asli)
+  // Pelanggan bergabung ke ruang obrolan privat masing-masing (Struktur asli tanpa mengubah parameter join_room)
   socket.on('join_room', ({ roomId, username, category }) => {
     socket.join(roomId);
     
@@ -110,7 +110,8 @@ io.on('connection', (socket) => {
         username: username || 'Member Baru', 
         category: category || 'Umum',
         createdAt: new Date().toISOString().split('T')[0],
-        hasResponded: false
+        hasResponded: false,
+        memberStatus: 'stay' // Ditambahkan tanpa mengubah logika asli agar kompatibel dengan admin.html
       };
       
       // Hitung statistik chat masuk harian
@@ -121,6 +122,7 @@ io.on('connection', (socket) => {
     } else {
       if (username) rooms[roomId].username = username;
       if (category) rooms[roomId].category = category;
+      if (!rooms[roomId].memberStatus) rooms[roomId].memberStatus = 'stay';
     }
     
     // Kirim riwayat chat spesifik room ini agar tidak hilang saat refresh/reconnect
@@ -137,10 +139,41 @@ io.on('connection', (socket) => {
     socket.emit('update_analytics', analyticsData);
   });
 
-  // Arsipkan Sesi Chat (Oleh Admin / Member)
+  // Arsipkan Sesi Chat (Oleh Admin / Member) - Mendukung event 'close_room' dan 'archive_room'
+  socket.on('close_room', ({ roomId }) => {
+    if (rooms[roomId]) {
+      rooms[roomId].memberStatus = 'closed';
+
+      // Deteksi Missed Chat jika room ditutup tanpa balasan sama sekali dari sistem/admin
+      if (!rooms[roomId].hasResponded) {
+        analyticsData.missedChatsToday++;
+        const cat = rooms[roomId].category || 'Lainnya';
+        if (analyticsData.missedCategories[cat] !== undefined) {
+          analyticsData.missedCategories[cat]++;
+        } else {
+          analyticsData.missedCategories['Lainnya']++;
+        }
+        
+        const today = new Date().toISOString().split('T')[0];
+        if (analyticsData.dailyStats[today]) analyticsData.dailyStats[today].missed++;
+      }
+
+      archivedRooms[roomId] = {
+        ...rooms[roomId],
+        closedAt: new Date().toLocaleString()
+      };
+      delete rooms[roomId];
+
+      io.emit('update_room_list', rooms);
+      io.emit('update_archive_list', archivedRooms);
+      io.emit('update_analytics', analyticsData);
+    }
+  });
+
   socket.on('archive_room', (roomId) => {
     if (rooms[roomId]) {
-      // Deteksi Missed Chat jika room ditutup tanpa balasan sama sekali dari sistem/admin
+      rooms[roomId].memberStatus = 'closed';
+      
       if (!rooms[roomId].hasResponded) {
         analyticsData.missedChatsToday++;
         const cat = rooms[roomId].category || 'Lainnya';
