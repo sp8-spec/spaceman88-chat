@@ -155,7 +155,6 @@
     const activeRoomTitle = document.getElementById('active-room-title');
     const btnCloseRoom = document.getElementById('btn-close-room');
 
-    // Fungsi Navigasi Tab
     function switchTab(tabName) {
       document.getElementById('tab-content-chat').classList.add('hidden');
       document.getElementById('tab-content-archive').classList.add('hidden');
@@ -185,7 +184,6 @@
       return replacedText.replace(/(^|[^\/])(www\.[\S]+(\b|$))/gim, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer">$2</a>');
     }
 
-    // Listener Data Room dari Backend
     socket.on('update_room_list', (rooms) => {
       allRoomsData = rooms;
       renderQueueList();
@@ -218,15 +216,21 @@
         }
         const isSelected = id === currentRoomId;
 
+        // Badge Status Member (Stay / Close)
+        // Jika member melakukan close chat, status member bisa ditandai 'closed' atau 'stay'
+        const memberStatusBadge = room.memberStatus === 'closed' 
+          ? `<span class="bg-rose-500/20 text-rose-400 text-[10px] px-2 py-0.5 rounded-full font-medium">Closed Chat</span>`
+          : `<span class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-medium">Stay in Room</span>`;
+
         const card = document.createElement('div');
         card.className = `p-3 rounded-xl cursor-pointer border transition ${
           isSelected ? 'bg-indigo-950/80 border-indigo-500' : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
         }`;
         
         card.innerHTML = `
-          <div class="flex justify-between items-center">
+          <div class="flex justify-between items-center mb-1">
             <span class="font-semibold text-sm text-slate-200">${room.username}</span>
-            <span class="w-2 h-2 ${room.isHumanTakeover ? 'bg-amber-400' : 'bg-emerald-400'} rounded-full"></span>
+            ${memberStatusBadge}
           </div>
           <p class="text-[11px] text-indigo-300 mt-0.5">Perihal: ${room.category}</p>
           <p class="text-xs text-slate-400 mt-1 truncate">${lastMsg}</p>
@@ -299,7 +303,6 @@
       socket.emit('admin_message', { roomId: currentRoomId, text });
     }
 
-    // Tombol Tutup / Selesaikan Chat
     function closeCurrentRoom() {
       if (!currentRoomId) return;
       if (confirm('Selesaikan dan arsipkan percakapan ini?')) {
@@ -346,7 +349,6 @@
       targetContainer.appendChild(msgDiv);
     }
 
-    // Render Archive List
     function renderArchiveList() {
       archiveList.innerHTML = '';
       const archiveIds = Object.keys(archiveRoomsData);
