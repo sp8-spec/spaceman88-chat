@@ -100,10 +100,12 @@ Masing-masing bonus memiliki syarat & ketentuan yang berlaku.
 io.on('connection', (socket) => {
   
   // Pelanggan bergabung ke ruang obrolan privat masing-masing (Struktur asli tanpa mengubah parameter join_room)
-  socket.on('join_room', ({ roomId, username, category }) => {
+  socket.on('join_room', async ({ roomId, username, category }) => {
     socket.join(roomId);
     
+    let isNewRoom = false;
     if (!rooms[roomId]) {
+      isNewRoom = true;
       rooms[roomId] = { 
         isHumanTakeover: false, 
         history: [], 
@@ -125,6 +127,37 @@ io.on('connection', (socket) => {
       if (!rooms[roomId].memberStatus) rooms[roomId].memberStatus = 'stay';
     }
     
+    // Jika room baru, bot langsung memberikan kata-kata sambutan/sapaan otomatis
+    if (isNewRoom) {
+      try {
+        const welcomePrompt = [
+          { 
+            role: 'system', 
+            content: `${SYSTEM_PROMPT}\nData Pelanggan Saat Ini -> Username ID: ${rooms[roomId].username}, Kategori Perihal: ${rooms[roomId].category}` 
+          },
+          { 
+            role: 'user', 
+            content: "Halo, saya baru saja masuk ke live chat." 
+          }
+        ];
+
+        const completion = await groq.chat.completions.create({
+          messages: welcomePrompt,
+          model: 'openai/gpt-oss-20b',
+          temperature: 0.5,
+          max_completion_tokens: 1000,
+        });
+
+        const aiReplyText = completion.choices[0]?.message?.content || `Selamat datang Bapak ${rooms[roomId].username}, ada yang bisa kami bantu?`;
+        const aiMsg = { sender: 'CS Spaceman88', text: aiReplyText, image: null, timestamp: new Date() };
+
+        rooms[roomId].hasResponded = true;
+        rooms[roomId].history.push(aiMsg);
+      } catch (err) {
+        console.error('Error Welcome AI Groq:', err.message);
+      }
+    }
+
     // Kirim riwayat chat spesifik room ini agar tidak hilang saat refresh/reconnect
     socket.emit('load_history', rooms[roomId].history);
     socket.emit('room_status', rooms[roomId]);
