@@ -142,7 +142,7 @@ io.on('connection', (socket) => {
         messages: conversationContext,
         model: 'openai/gpt-oss-20b',
         temperature: 0.5,
-        max_completion_tokens: 300,
+        max_completion_tokens: 1000,
       });
 
       const aiReplyText = completion.choices[0]?.message?.content || 'Mohon maaf Bapak, terjadi kendala teknis pada sistem kami. Silakan tunggu sejenak, petugas CS kami akan segera melayani Bapak.';
