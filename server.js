@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const Groq = require('groq-sdk');
 const path = require('path');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -62,23 +63,28 @@ PENANGANAN MEMBER MARAH / EMOSI / SPAM (DE-ESCALATION):
 `;
 
 io.on('connection', (socket) => {
-  // Pelanggan bergabung ke ruang obrolan
+  
+  // Pelanggan bergabung ke ruang obrolan privat masing-masing
   socket.on('join_room', ({ roomId, username, category }) => {
     socket.join(roomId);
+    
     if (!rooms[roomId]) {
       rooms[roomId] = { 
         isHumanTakeover: false, 
         history: [], 
-        username: username || 'Pengguna', 
+        username: username || 'Member Baru', 
         category: category || 'Umum' 
       };
     } else {
       if (username) rooms[roomId].username = username;
       if (category) rooms[roomId].category = category;
     }
+    
+    // Kirim riwayat chat spesifik room ini agar tidak hilang saat refresh/reconnect
+    socket.emit('load_history', rooms[roomId].history);
     socket.emit('room_status', rooms[roomId]);
     
-    // Kirim pembaruan daftar room ke semua admin
+    // Kirim pembaruan daftar room ke seluruh admin yang terhubung
     io.emit('update_room_list', rooms);
   });
 
@@ -89,8 +95,10 @@ io.on('connection', (socket) => {
 
     const userMsg = { sender: room.username, text, timestamp: new Date() };
     room.history.push(userMsg);
+    
+    // KIRIM PESAN HANYA KE ROOM TERSEBUT (Tidak bocor ke room member lain)
     io.to(roomId).emit('new_message', userMsg);
-    io.emit('update_room_list', rooms); // Update list sidebar admin
+    io.emit('update_room_list', rooms);
 
     // Jika CS Manusia mengambil alih, AI tidak membalas
     if (room.isHumanTakeover) return;
@@ -112,7 +120,7 @@ io.on('connection', (socket) => {
         messages: conversationContext,
         model: 'openai/gpt-oss-20b',
         temperature: 0.5,
-        max_completion_tokens: 500,
+        max_completion_tokens: 300,
       });
 
       const aiReplyText = completion.choices[0]?.message?.content || 'Mohon maaf Bapak, terjadi kendala teknis pada sistem kami. Silakan tunggu sejenak, petugas CS kami akan segera melayani Bapak.';
@@ -120,7 +128,7 @@ io.on('connection', (socket) => {
 
       room.history.push(aiMsg);
       io.to(roomId).emit('new_message', aiMsg);
-      io.emit('update_room_list', rooms); // Update list sidebar admin
+      io.emit('update_room_list', rooms);
 
     } catch (err) {
       console.error('Error Groq API:', err.message);
@@ -137,15 +145,15 @@ io.on('connection', (socket) => {
     const adminMsg = { sender: 'CS Spaceman88 (Senior)', text, timestamp: new Date() };
     rooms[roomId].history.push(adminMsg);
     io.to(roomId).emit('new_message', adminMsg);
-    io.emit('update_room_list', rooms); // Update list sidebar admin
+    io.emit('update_room_list', rooms);
   });
 
-  // Mengubah status Ambil Alih
+  // Mengubah status Ambil Alih (Human Takeover)
   socket.on('toggle_takeover', ({ roomId, isHumanTakeover }) => {
     if (rooms[roomId]) {
       rooms[roomId].isHumanTakeover = isHumanTakeover;
       io.to(roomId).emit('takeover_updated', isHumanTakeover);
-      io.emit('update_room_list', rooms); // Update status badge di admin
+      io.emit('update_room_list', rooms);
     }
   });
 });
