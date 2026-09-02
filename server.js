@@ -8,7 +8,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// PERBAIKAN: Menambahkan maxHttpBufferSize (10MB) agar Socket.io mengizinkan pengiriman file gambar base64
+// Menambahkan maxHttpBufferSize (10MB) agar Socket.io mengizinkan pengiriman file gambar base64
 const io = new Server(server, {
   maxHttpBufferSize: 10 * 1024 * 1024
 });
@@ -99,7 +99,7 @@ Masing-masing bonus memiliki syarat & ketentuan yang berlaku.
 
 io.on('connection', (socket) => {
   
-  // Pelanggan bergabung ke ruang obrolan privat masing-masing
+  // Pelanggan bergabung ke ruang obrolan privat masing-masing (Kembali ke kode asli)
   socket.on('join_room', ({ roomId, username, category }) => {
     socket.join(roomId);
     
@@ -110,8 +110,7 @@ io.on('connection', (socket) => {
         username: username || 'Member Baru', 
         category: category || 'Umum',
         createdAt: new Date().toISOString().split('T')[0],
-        hasResponded: false,
-        memberStatus: 'stay' // Menandakan status member masih aktif di ruangan
+        hasResponded: false
       };
       
       // Hitung statistik chat masuk harian
@@ -122,7 +121,6 @@ io.on('connection', (socket) => {
     } else {
       if (username) rooms[roomId].username = username;
       if (category) rooms[roomId].category = category;
-      if (!rooms[roomId].memberStatus) rooms[roomId].memberStatus = 'stay';
     }
     
     // Kirim riwayat chat spesifik room ini agar tidak hilang saat refresh/reconnect
@@ -139,11 +137,9 @@ io.on('connection', (socket) => {
     socket.emit('update_analytics', analyticsData);
   });
 
-  // Arsipkan/Tutup Sesi Chat dari Tombol Admin (Mendukung event 'close_room')
-  socket.on('close_room', ({ roomId }) => {
+  // Arsipkan Sesi Chat (Oleh Admin / Member)
+  socket.on('archive_room', (roomId) => {
     if (rooms[roomId]) {
-      rooms[roomId].memberStatus = 'closed'; // Update status member menjadi closed
-
       // Deteksi Missed Chat jika room ditutup tanpa balasan sama sekali dari sistem/admin
       if (!rooms[roomId].hasResponded) {
         analyticsData.missedChatsToday++;
@@ -158,22 +154,6 @@ io.on('connection', (socket) => {
         if (analyticsData.dailyStats[today]) analyticsData.dailyStats[today].missed++;
       }
 
-      archivedRooms[roomId] = {
-        ...rooms[roomId],
-        closedAt: new Date().toLocaleString()
-      };
-      delete rooms[roomId];
-
-      io.emit('update_room_list', rooms);
-      io.emit('update_archive_list', archivedRooms);
-      io.emit('update_analytics', analyticsData);
-    }
-  });
-
-  // Kompatibilitas arsip via string langsung
-  socket.on('archive_room', (roomId) => {
-    if (rooms[roomId]) {
-      rooms[roomId].memberStatus = 'closed';
       archivedRooms[roomId] = {
         ...rooms[roomId],
         closedAt: new Date().toLocaleString()
