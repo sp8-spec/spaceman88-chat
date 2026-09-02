@@ -268,11 +268,22 @@
     socket.on('update_room_list', (rooms) => {
       allRoomsData = rooms;
       renderQueueList();
+
+      // Auto-restore room aktif dari localStorage jika halaman di-refresh
+      if (!currentRoomId) {
+        const savedRoomId = localStorage.getItem('last_active_room');
+        if (savedRoomId && rooms[savedRoomId]) {
+          currentRoomId = savedRoomId;
+          updateRoomUI(rooms[savedRoomId]);
+        }
+      }
+
       if (currentRoomId && rooms[currentRoomId]) {
         updateRoomUI(rooms[currentRoomId]);
       } else if (currentRoomId && !rooms[currentRoomId]) {
         // Jika room yang sedang dibuka tiba-tiba ditutup atau di-arsip
         currentRoomId = null;
+        localStorage.removeItem('last_active_room');
         adminChatBox.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-slate-500 text-xs">Sesi percakapan telah ditutup atau diarsipkan.</div>';
         activeRoomTitle.innerText = 'Pilih ruang chat dari antrean sebelah kiri';
         modeStatus.innerText = 'Mode: -';
@@ -340,6 +351,7 @@
 
     function switchRoom(roomId) {
       currentRoomId = roomId;
+      localStorage.setItem('last_active_room', roomId); // Simpan room aktif ke localStorage
       const room = allRoomsData[roomId];
       if (room) {
         updateRoomUI(room);
@@ -407,6 +419,7 @@
       if (!currentRoomId) return;
       if (confirm('Selesaikan dan arsipkan percakapan ini?')) {
         socket.emit('close_room', { roomId: currentRoomId });
+        localStorage.removeItem('last_active_room'); // Hapus dari localStorage saat ditutup
         currentRoomId = null;
         adminChatBox.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-slate-500 text-xs">Silakan klik salah satu nama member di panel kiri untuk mulai membalas chat.</div>';
         activeRoomTitle.innerText = 'Pilih ruang chat dari antrean sebelah kiri';
@@ -416,7 +429,6 @@
     }
 
     socket.on('new_message', (msg) => {
-      // Ditangani oleh update_room_list dari backend, tapi tambahkan fallback aman
       if (currentRoomId === msg.roomId && allRoomsData[currentRoomId]) {
         const room = allRoomsData[currentRoomId];
         appendMessageToUI(msg, room.username, adminChatBox);
