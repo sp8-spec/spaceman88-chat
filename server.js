@@ -153,6 +153,9 @@ io.on('connection', (socket) => {
 
         rooms[roomId].hasResponded = true;
         rooms[roomId].history.push(aiMsg);
+        
+        // TAMBAHKAN INI: Agar pesan sapaan langsung disiarkan ke chat room
+        io.to(roomId).emit('new_message', aiMsg);
       } catch (err) {
         console.error('Error Welcome AI Groq:', err.message);
       }
