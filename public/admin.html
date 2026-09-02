@@ -267,16 +267,16 @@
 
     socket.on('update_room_list', (rooms) => {
       allRoomsData = rooms;
-      renderQueueList();
 
       // Auto-restore room aktif dari localStorage jika halaman di-refresh
       if (!currentRoomId) {
         const savedRoomId = localStorage.getItem('last_active_room');
         if (savedRoomId && rooms[savedRoomId]) {
           currentRoomId = savedRoomId;
-          updateRoomUI(rooms[savedRoomId]);
         }
       }
+
+      renderQueueList();
 
       if (currentRoomId && rooms[currentRoomId]) {
         updateRoomUI(rooms[currentRoomId]);
@@ -496,7 +496,7 @@
       `;
       const historyContainer = document.getElementById('archive-chat-history');
       room.history.forEach(msg => {
-        appendMessageToUI(msg, room.username, historyContainer);
+      	appendMessageToUI(msg, room.username, historyContainer);
       });
       historyContainer.scrollTop = historyContainer.scrollHeight;
     }
