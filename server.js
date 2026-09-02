@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const Groq = require('groq-sdk');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,8 +22,10 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-const rooms = {};
-const archivedRooms = {}; // Penyimpanan untuk arsip chat
+// File penyimpanan data agar tidak hilang saat server restart/refresh
+const DATA_FILE = path.join(__dirname, 'rooms_data.json');
+let rooms = {};
+let archivedRooms = {}; 
 
 // Objek untuk laporan analytics harian (Total masuk, Missed chat, Kategori)
 let analyticsData = {
@@ -31,6 +34,28 @@ let analyticsData = {
   missedCategories: { 'Deposit/WD': 0, 'Kendala Akun': 0, 'Game/RTP': 0, 'Lainnya': 0 },
   dailyStats: {} // Format: { "YYYY-MM-DD": { total: 0, missed: 0 } }
 };
+
+// Load data tersimpan jika file ada
+if (fs.existsSync(DATA_FILE)) {
+  try {
+    const rawData = fs.readFileSync(DATA_FILE);
+    const parsed = JSON.parse(rawData);
+    rooms = parsed.rooms || {};
+    archivedRooms = parsed.archivedRooms || {};
+    analyticsData = parsed.analyticsData || analyticsData;
+  } catch (e) {
+    console.error('Gagal membaca file data tersimpan:', e);
+  }
+}
+
+// Fungsi helper untuk menyimpan data otomatis ke file json
+function saveData() {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ rooms, archivedRooms, analyticsData }, null, 2));
+  } catch (e) {
+    console.error('Gagal menyimpan data:', e);
+  }
+}
 
 // SYSTEM PROMPT CS Virtual Spaceman88 (Formal & Premium)
 const SYSTEM_PROMPT = `
@@ -106,10 +131,10 @@ io.on('connection', (socket) => {
     let isNewRoom = false;
     if (!rooms[roomId]) {
       isNewRoom = true;
-      rooms[roomId] = { 
-        isHumanTakeover: false, 
-        history: [], 
-        username: username || 'Member Baru', 
+      rooms[roomId] = {  
+        isHumanTakeover: false,  
+        history: [],  
+        username: username || 'Member Baru',  
         category: category || 'Umum',
         createdAt: new Date().toISOString().split('T')[0],
         hasResponded: false,
@@ -154,12 +179,15 @@ io.on('connection', (socket) => {
         rooms[roomId].hasResponded = true;
         rooms[roomId].history.push(aiMsg);
         
-        // TAMBAHKAN INI: Agar pesan sapaan langsung disiarkan ke chat room
+        // Agar pesan sapaan langsung disiarkan ke chat room
         io.to(roomId).emit('new_message', aiMsg);
       } catch (err) {
         console.error('Error Welcome AI Groq:', err.message);
       }
     }
+
+    // Simpan perubahan room baru agar persistensi aman saat refresh
+    saveData();
 
     // Kirim riwayat chat spesifik room ini agar tidak hilang saat refresh/reconnect
     socket.emit('load_history', rooms[roomId].history);
@@ -200,6 +228,8 @@ io.on('connection', (socket) => {
       };
       delete rooms[roomId];
 
+      saveData();
+
       io.emit('update_room_list', rooms);
       io.emit('update_archive_list', archivedRooms);
       io.emit('update_analytics', analyticsData);
@@ -229,6 +259,8 @@ io.on('connection', (socket) => {
       };
       delete rooms[roomId];
 
+      saveData();
+
       io.emit('update_room_list', rooms);
       io.emit('update_archive_list', archivedRooms);
       io.emit('update_analytics', analyticsData);
@@ -252,6 +284,7 @@ io.on('connection', (socket) => {
       timestamp: new Date() 
     };
     room.history.push(userMsg);
+    saveData();
     
     io.to(roomId).emit('new_message', userMsg);
     io.emit('update_room_list', rooms);
@@ -284,6 +317,8 @@ io.on('connection', (socket) => {
 
       room.hasResponded = true; // Menandakan room sudah direspon AI
       room.history.push(aiMsg);
+      saveData();
+
       io.to(roomId).emit('new_message', aiMsg);
       io.emit('update_room_list', rooms);
 
@@ -291,6 +326,8 @@ io.on('connection', (socket) => {
       console.error('Error Groq API:', err.message);
       const errorMsg = { sender: 'CS Spaceman88', text: 'Mohon maaf Bapak, sistem respon otomatis sedang mengalami kendala.', timestamp: new Date() };
       room.history.push(errorMsg);
+      saveData();
+
       io.to(roomId).emit('new_message', errorMsg);
       io.emit('update_room_list', rooms);
     }
@@ -298,7 +335,7 @@ io.on('connection', (socket) => {
 
   // Menerima pesan dari Admin (CS Manusia) - Mendukung Teks dan Gambar
   socket.on('admin_message', ({ roomId, text, image }) => {
-    if (!rooms[roomId]) return;
+    if (!rooms[roomId]) rooms[roomId] = { history: [], isHumanTakeover: true, username: 'Member', memberStatus: 'stay' };
     const room = rooms[roomId];
 
     const adminMsg = { 
@@ -310,6 +347,8 @@ io.on('connection', (socket) => {
 
     room.hasResponded = true; // Menandakan admin sudah merespon
     room.history.push(adminMsg);
+    saveData();
+
     io.to(roomId).emit('new_message', adminMsg);
     io.emit('update_room_list', rooms);
   });
@@ -318,6 +357,7 @@ io.on('connection', (socket) => {
   socket.on('toggle_takeover', ({ roomId, isHumanTakeover }) => {
     if (rooms[roomId]) {
       rooms[roomId].isHumanTakeover = isHumanTakeover;
+      saveData();
       io.to(roomId).emit('takeover_updated', isHumanTakeover);
       io.emit('update_room_list', rooms);
     }
